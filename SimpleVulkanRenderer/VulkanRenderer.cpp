@@ -377,6 +377,16 @@ void VulkanRenderer::CreateDescriptorSetLayout()
     }
 }
 
+void VulkanRenderer::CreateGraphicsPipeline(const GraphicsPipelineDescriptor& descriptor)
+{
+    if (mGraphicsPipeline != nullptr)
+    {
+        throw std::runtime_error("Graphics Pipeline already exists!");
+    }
+    mGraphicsPipeline = std::make_shared<VulkanGraphicsPipeline>( descriptor);
+    mGraphicsPipeline->UpdatePipeline(device, renderPass, swapChainExtent, descriptorSetLayout);
+}
+
 /// <summary>
 /// TODO
 /// </summary>

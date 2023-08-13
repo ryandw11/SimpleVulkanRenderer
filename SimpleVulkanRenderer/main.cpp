@@ -17,6 +17,8 @@
 #include <time.h>
 
 #include "VulkanRenderer.hpp"
+#include "VulkanVertexShader.hpp"
+#include "VulkanFragmentShader.hpp"
 #include "GreedyMesh.h"
 
 constexpr auto WIDTH = 800;
@@ -48,6 +50,24 @@ void loadModel(VulkanRenderer& renderer) {
     renderer.indices.insert(renderer.indices.end(), output.indicies.begin(), output.indicies.end());
 }
 
+std::shared_ptr<VulkanVertexShader> CreateVertexShader(VkDevice device)
+{
+    auto vertexShader = std::make_shared<VulkanVertexShader>(device, "main", "shaders/vert.spv");
+    vertexShader->VertexAttribute(0, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(Vertex, Vertex::pos));
+    vertexShader->VertexAttribute(0, 1, VK_FORMAT_R32G32B32_SFLOAT, offsetof(Vertex, Vertex::color));
+    
+    vertexShader->VertexUniformBinding(0, sizeof(Vertex));
+
+    return vertexShader;
+}
+
+std::shared_ptr<VulkanFragmentShader> CreateFragmentShader(VkDevice device)
+{
+    auto fragmentShader = std::make_shared<VulkanFragmentShader>(device, "main", "shaders/frag.spv");
+
+    return fragmentShader;
+}
+
 int main() {
     VulkanRenderer renderer;
 
@@ -68,7 +88,12 @@ int main() {
     renderer.CreateImageViews();
     renderer.CreateRenderPass();
     renderer.CreateDescriptorSetLayout();
-    renderer.CreateGraphicsPipeline();
+
+    GraphicsPipelineDescriptor pipelineDescriptor;
+    pipelineDescriptor.VertexShader = CreateVertexShader(renderer.device);
+    pipelineDescriptor.FragmentShader = CreateFragmentShader(renderer.device);
+    renderer.CreateGraphicsPipeline(pipelineDescriptor);
+
     renderer.CreateCommandPool();
     renderer.CreateDepthResources();
     renderer.CreateFrameBuffers();
