@@ -1,0 +1,90 @@
+#pragma once
+
+#ifndef VULKAN_RENDERER_TYPES
+#define VULKAN_RENDERER_TYPES
+
+#include <string>
+#include <optional>
+
+struct VulkanInstanceInfo
+{
+	std::string ApplicationName;
+	std::uint32_t ApplicationVersion;
+};
+
+struct SwapChainInfo
+{
+	/// <summary>
+	/// The number of images the swap chain should use.
+	/// </summary>
+	std::optional<int> ImageCount;
+};
+
+/**
+
+    The struct that stores information about verticies.
+
+*/
+struct Vertex {
+    glm::vec3 pos;
+    glm::vec3 color;
+    glm::vec2 texCoord;
+
+    // Setup the binding descriptions.
+    static VkVertexInputBindingDescription getBindingDescription() {
+        VkVertexInputBindingDescription bindingDescription{};
+        bindingDescription.binding = 0;
+        bindingDescription.stride = sizeof(Vertex);
+        bindingDescription.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+
+        return bindingDescription;
+    }
+
+    //Setup Attribute Descriptions.
+    static std::array<VkVertexInputAttributeDescription, 2> getAttributeDescriptions() {
+        std::array<VkVertexInputAttributeDescription, 2> attributeDescriptions{};
+        // Vertex Attribute Desciption
+        // Which binding the per-vertex data comes.
+        attributeDescriptions[0].binding = 0;
+        // The location directive of the input in the vertex shader.
+        attributeDescriptions[0].location = 0;
+        // Describes the type of data for the attribute. These use color formats. See the list here: https://vulkan-tutorial.com/Vertex_buffers/Vertex_input_description
+        attributeDescriptions[0].format = VK_FORMAT_R32G32B32_SFLOAT;
+        // The number of bytes since the start of the per-vertex data to read from.
+        // That is automatically calculated using the offsetof macro.
+        attributeDescriptions[0].offset = offsetof(Vertex, pos);
+
+        // Color Attribute Description.
+        attributeDescriptions[1].binding = 0;
+        attributeDescriptions[1].location = 1;
+        attributeDescriptions[1].format = VK_FORMAT_R32G32B32_SFLOAT;
+        attributeDescriptions[1].offset = offsetof(Vertex, color);
+
+        /*// Texture Coord Attribute Description.
+        attributeDescriptions[2].binding = 0;
+        attributeDescriptions[2].location = 2;
+        attributeDescriptions[2].format = VK_FORMAT_R32G32_SFLOAT;
+        attributeDescriptions[2].offset = offsetof(Vertex, texCoord);*/
+
+        return attributeDescriptions;
+    }
+
+    bool operator==(const Vertex& other) const {
+        return pos == other.pos && color == other.color && texCoord == other.texCoord;
+    }
+};
+
+/**
+    A hash function for the Vertex. (This is not used by the algorithm)
+*/
+namespace std {
+    template<> struct hash<Vertex> {
+        size_t operator()(Vertex const& vertex) const {
+            return ((hash<glm::vec3>()(vertex.pos) ^
+                (hash<glm::vec3>()(vertex.color) << 1)) >> 1) ^
+                (hash<glm::vec2>()(vertex.texCoord) << 1);
+        }
+    };
+}
+
+#endif
