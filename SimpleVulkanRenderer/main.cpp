@@ -83,10 +83,8 @@ int main() {
     renderer.SelectPhysicalDevice();
     renderer.CreateLogicalDevice();
 
-    SwapChainInfo swapChainInfo;
-    renderer.CreateSwapChain(swapChainInfo);
-    renderer.CreateImageViews();
-    renderer.CreateRenderPass();
+    SwapChainDescriptor swapChainDescriptor;
+    renderer.SetupSwapChain(swapChainDescriptor);
     renderer.CreateDescriptorSetLayout();
 
     GraphicsPipelineDescriptor pipelineDescriptor;
@@ -95,8 +93,6 @@ int main() {
     renderer.CreateGraphicsPipeline(pipelineDescriptor);
 
     renderer.CreateCommandPool();
-    renderer.CreateDepthResources();
-    renderer.CreateFrameBuffers();
     //renderer.CreateTextureImage();
     //renderer.CreateTextureImageView();
     //createTextureSampler();

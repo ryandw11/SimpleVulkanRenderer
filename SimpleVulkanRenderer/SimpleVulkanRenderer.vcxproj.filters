@@ -9,6 +9,7 @@
     <ClCompile Include="VulkanVertexShader.cpp" />
     <ClCompile Include="VulkanFragmentShader.cpp" />
     <ClCompile Include="VulkanGraphicsPipeline.cpp" />
+    <ClCompile Include="VulkanSwapChain.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="3DArray.h">
@@ -39,6 +40,12 @@
       <Filter>Headers</Filter>
     </ClInclude>
     <ClInclude Include="VulkanGraphicsPipeline.hpp" />
+    <ClInclude Include="VulkanSwapChain.hpp">
+      <Filter>Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="VulkanImageUtilities.hpp">
+      <Filter>Headers</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="Headers">

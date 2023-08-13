@@ -1,4 +1,5 @@
 #include "VulkanRenderer.hpp"
+#include "VulkanImageUtilities.hpp"
 
 void VulkanRenderer::CreateGLFWWindow(int width, int height, std::string name) {
 
@@ -200,73 +201,13 @@ void VulkanRenderer::CreateLogicalDevice()
 /// Create the swap chain to use and the image views that go with it.
 /// </summary>
 /// <param name="swapChainInfo">Configuration of the swap chain.</param>
-void VulkanRenderer::CreateSwapChain(SwapChainInfo swapChainInfo)
+void VulkanRenderer::SetupSwapChain(const SwapChainDescriptor descriptor)
 {
-    SwapChainSupportDetails swapChainSupport = querySwapChainSupport(physicalDevice);
-
-    VkSurfaceFormatKHR surfaceFormat = chooseSwapSurfaceFormat(swapChainSupport.formats);
-    VkPresentModeKHR presentMode = chooseSwapPresentMode(swapChainSupport.presentModes);
-    VkExtent2D extent = chooseSwapExtent(swapChainSupport.capabilities);
-
-    // Number of images that are in the swap chain
-    uint32_t imageCount = swapChainInfo.ImageCount ? *swapChainInfo.ImageCount : swapChainSupport.capabilities.minImageCount + 1;
-    if (swapChainSupport.capabilities.maxImageCount > 0 && imageCount > swapChainSupport.capabilities.maxImageCount)
-    {
-        imageCount = swapChainSupport.capabilities.maxImageCount;
-    }
-
-    VkSwapchainCreateInfoKHR createInfo{};
-    createInfo.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
-    createInfo.surface = surface;
-    createInfo.minImageCount = imageCount;
-    createInfo.imageFormat = surfaceFormat.format;
-    createInfo.imageColorSpace = surfaceFormat.colorSpace;
-    createInfo.imageExtent = extent;
-    createInfo.imageArrayLayers = 1;
-    createInfo.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
-
-    QueueFamilyIndices indicies = findQueueFamilies(physicalDevice);
-    uint32_t queueFamilyIndicies[] = { indicies.graphicsFamily.value(), indicies.presentFamily.value() };
-
-    // Choose the image sharing mode based on if the graphics and presentation queues are the same or not.
-    if (indicies.graphicsFamily != indicies.presentFamily)
-    {
-        // Concurrent means images can be owned and used by multiple queues.
-        // Not the best performance, but does not require explicit movement of images from queue to queue.
-        createInfo.imageSharingMode = VK_SHARING_MODE_CONCURRENT;
-        createInfo.queueFamilyIndexCount = 2;
-        createInfo.pQueueFamilyIndices = queueFamilyIndicies;
-    }
-    else
-    {
-        createInfo.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
-        createInfo.queueFamilyIndexCount = 0;
-        createInfo.pQueueFamilyIndices = nullptr;
-    }
-
-    createInfo.preTransform = swapChainSupport.capabilities.currentTransform;
-    // If the alpha channel should be used for blending with other windows in the window system.
-    // This specifies to ignore the alpha channel.
-    createInfo.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
-    createInfo.presentMode = presentMode;
-    // We don't care about the color of the pixels that are obscured.
-    createInfo.clipped = VK_TRUE;
-    createInfo.oldSwapchain = VK_NULL_HANDLE;
-
-    // Create it using the device, swap chain info, and the place to store the swap chain.
-    if (vkCreateSwapchainKHR(device, &createInfo, nullptr, &swapChain) != VK_SUCCESS)
-    {
-        throw std::runtime_error("Failed to create valid swap chain!");
-    }
-
-    vkGetSwapchainImagesKHR(device, swapChain, &imageCount, nullptr);
-    swapChainImages.resize(imageCount);
-    vkGetSwapchainImagesKHR(device, swapChain, &imageCount, swapChainImages.data());
-
-    swapChainImageFormat = surfaceFormat.format;
-    swapChainExtent = extent;
-
-    CreateImageViews();
+    mSwapChain = std::make_shared<VulkanSwapChain>(descriptor);
+    mSwapChain->InitializeSwapChain(window, surface, physicalDevice, device);
+    CreateRenderPass();
+    mSwapChain->CreateDepthImage(physicalDevice, device);
+    mSwapChain->CreateFrameBuffers(device, renderPass);
 }
 
 /// <summary>
@@ -275,7 +216,7 @@ void VulkanRenderer::CreateSwapChain(SwapChainInfo swapChainInfo)
 void VulkanRenderer::CreateRenderPass()
 {
     VkAttachmentDescription colorAttachment{};
-    colorAttachment.format = swapChainImageFormat;
+    colorAttachment.format = mSwapChain->ImageFormat();
     colorAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
     // Load and clear the framebuffer to black.
     colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
@@ -292,7 +233,7 @@ void VulkanRenderer::CreateRenderPass()
     colorAttachmentRef.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 
     VkAttachmentDescription depthAttachment{};
-    depthAttachment.format = findDepthFormat();
+    depthAttachment.format = FindDepthFormat(physicalDevice);
     depthAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
     depthAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
     depthAttachment.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
@@ -384,49 +325,7 @@ void VulkanRenderer::CreateGraphicsPipeline(const GraphicsPipelineDescriptor& de
         throw std::runtime_error("Graphics Pipeline already exists!");
     }
     mGraphicsPipeline = std::make_shared<VulkanGraphicsPipeline>( descriptor);
-    mGraphicsPipeline->UpdatePipeline(device, renderPass, swapChainExtent, descriptorSetLayout);
-}
-
-/// <summary>
-/// TODO
-/// </summary>
-void VulkanRenderer::CreateDepthResources()
-{
-    VkFormat depthFormat = findDepthFormat();
-    createImage(swapChainExtent.width, swapChainExtent.height, depthFormat, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-        depthImage, depthImageMemory);
-    depthImageView = createImageView(depthImage, depthFormat, VK_IMAGE_ASPECT_DEPTH_BIT);
-}
-
-/// <summary>
-/// Create the frame buffers for the swap chain.
-/// </summary>
-void VulkanRenderer::CreateFrameBuffers()
-{
-    // Resize the container to hold all of the frame buffers.
-    swapChainFrameBuffers.resize(swapChainImageViews.size());
-
-    for (size_t i = 0; i < swapChainImageViews.size(); i++)
-    {
-        std::array<VkImageView, 2> attachments = {
-            swapChainImageViews[i],
-            depthImageView
-        };
-
-        VkFramebufferCreateInfo framebufferInfo{};
-        framebufferInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
-        framebufferInfo.renderPass = renderPass; // For now, lets handle a single render pass.
-        framebufferInfo.attachmentCount = static_cast<uint32_t>(attachments.size());
-        framebufferInfo.pAttachments = attachments.data();
-        framebufferInfo.width = swapChainExtent.width;
-        framebufferInfo.height = swapChainExtent.height;
-        framebufferInfo.layers = 1;
-
-        if (vkCreateFramebuffer(device, &framebufferInfo, nullptr, &swapChainFrameBuffers[i]) != VK_SUCCESS)
-        {
-            throw std::runtime_error("Failed to create freambuffer!");
-        }
-    }
+    mGraphicsPipeline->UpdatePipeline(device, renderPass, mSwapChain->Extent(), descriptorSetLayout);
 }
 
 /// <summary>
@@ -438,7 +337,7 @@ void VulkanRenderer::CreateSyncObjects()
     imageAvailableSemaphores.resize(MAX_FRAMES_IN_FLIGHT);
     renderFinishedSemaphores.resize(MAX_FRAMES_IN_FLIGHT);
     inFlightFences.resize(MAX_FRAMES_IN_FLIGHT);
-    imagesInFlight.resize(swapChainImages.size(), VK_NULL_HANDLE);
+    imagesInFlight.resize(mSwapChain->Images().size(), VK_NULL_HANDLE);
 
     VkSemaphoreCreateInfo semaphoreInfo{};
     semaphoreInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;

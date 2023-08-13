@@ -160,6 +160,7 @@
     <ClCompile Include="VulkanFragmentShader.cpp" />
     <ClCompile Include="VulkanGraphicsPipeline.cpp" />
     <ClCompile Include="VulkanRenderer.cpp" />
+    <ClCompile Include="VulkanSwapChain.cpp" />
     <ClCompile Include="VulkanVertexShader.cpp" />
     <ClCompile Include="VulkanVertexShader.hpp" />
   </ItemGroup>
@@ -170,10 +171,12 @@
     <ClInclude Include="Queue.h" />
     <ClInclude Include="VulkanFragmentShader.hpp" />
     <ClInclude Include="VulkanGraphicsPipeline.hpp" />
+    <ClInclude Include="VulkanImageUtilities.hpp" />
     <ClInclude Include="VulkanIncludes.hpp" />
     <ClInclude Include="VulkanRenderer.hpp" />
     <ClInclude Include="VulkanRendererTypes.hpp" />
     <ClInclude Include="VulkanShader.hpp" />
+    <ClInclude Include="VulkanSwapChain.hpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

@@ -32,6 +32,7 @@
 //#include "GreedyMesh.h"
 #include "VulkanRendererTypes.hpp"
 #include "VulkanGraphicsPipeline.hpp"
+#include "VulkanSwapChain.hpp"
 
 // The amount of frames the system should try to handle at once.
 const int MAX_FRAMES_IN_FLIGHT = 3;
@@ -52,16 +53,6 @@ const bool enableValidationLayers = false;
 #else
 const bool enableValidationLayers = true;
 #endif
-
-// The Queue families.
-struct QueueFamilyIndices {
-    std::optional<uint32_t> graphicsFamily;
-    std::optional<uint32_t> presentFamily;
-
-    bool isComplete() {
-        return graphicsFamily.has_value() && presentFamily.has_value();
-    }
-};
 
 // Check the 3 basic properties for swap chains.
 struct SwapChainSupportDetails {
@@ -163,17 +154,9 @@ public:
     VkQueue graphicsQueue;
     VkQueue presentQueue;
 
-    VkSwapchainKHR swapChain;
-    std::vector<VkImage> swapChainImages;
-    VkFormat swapChainImageFormat;
-    VkExtent2D swapChainExtent;
-    // The image views
-    std::vector<VkImageView> swapChainImageViews;
     VkRenderPass renderPass;
     // The layout for shader descriptors.
     VkDescriptorSetLayout descriptorSetLayout;
-
-    std::vector<VkFramebuffer> swapChainFrameBuffers;
 
     // Manages allocation of Command Buffers.
     VkCommandPool commandPool;
@@ -211,16 +194,12 @@ public:
     VkImageView textureImageView;
     VkSampler textureSampler;
 
-    // The trifecta for images that will be used for depth testing.
-    VkImage depthImage;
-    VkDeviceMemory depthImageMemory;
-    VkImageView depthImageView;
-
 
     /*
         Custom stuff
     */
     std::shared_ptr<VulkanGraphicsPipeline> mGraphicsPipeline;
+    std::shared_ptr<VulkanSwapChain> mSwapChain;
 
     /*
 
@@ -254,51 +233,6 @@ public:
 
     void CreateVulkanInstance(VulkanInstanceInfo instanceInfo);
 
-    void mainLoop() {
-        // Setup the modelMatrix for the maino obj.
-        modelMatrix = glm::mat4(1.0f);
-        modelMatrix = glm::scale(modelMatrix, glm::vec3(0.5f, 0.5f, 0.5f));
-        modelMatrix = glm::rotate(modelMatrix, (float)glm::radians(90.0f), glm::vec3(1.0f, 0.0f, 0.0f));
-        modelMatrix = glm::translate(modelMatrix, glm::vec3(0.0f, -1.0f, 0.0f));
-
-        // Keep track of the last loop time.
-        auto lastLoopTime = std::chrono::duration_cast<std::chrono::nanoseconds> (std::chrono::system_clock::now().time_since_epoch()).count() / 1000000000.0;
-        // Event loop.
-        while (!glfwWindowShouldClose(window)) {
-            glfwPollEvents();
-
-            auto time = std::chrono::duration_cast<std::chrono::nanoseconds> (std::chrono::system_clock::now().time_since_epoch()).count() / 1000000000.0;
-            // The delta time in seconds.
-            float deltaTime = time - lastLoopTime;
-            lastLoopTime = time;
-
-            // Display the FPS on the title.
-            glfwSetWindowTitle(window, ("Vulkan Test | FPS: " + std::to_string(1 / deltaTime)).c_str());
-
-            // If the left key is press, rotate the object left.
-            int leftKeyState = glfwGetKey(window, GLFW_KEY_LEFT);
-            if (leftKeyState == GLFW_PRESS) {
-                modelMatrix = glm::rotate(modelMatrix, deltaTime * glm::radians(90.0f), glm::vec3(0.0f, -1.0f, 0.0f));
-            }
-
-            // If the right key is pressed, rotate the object right.
-            int rightKeyState = glfwGetKey(window, GLFW_KEY_RIGHT);
-            if (rightKeyState == GLFW_PRESS) {
-                modelMatrix = glm::rotate(modelMatrix, deltaTime * glm::radians(90.0f), glm::vec3(0.0f, 1.0f, 0.0f));
-            }
-
-            // If the right key is pressed, rotate the object right.
-            int shiftKeyState = glfwGetKey(window, GLFW_KEY_LEFT_SHIFT);
-            if (shiftKeyState == GLFW_PRESS) {
-                modelMatrix = glm::translate(modelMatrix, glm::vec3(0, -1 * deltaTime, 0));
-            }
-
-            drawFrame();
-        }
-
-        vkDeviceWaitIdle(device);
-    }
-
     void drawFrame() {
         // Wait for the current frame fence to finish before making the frame.
         vkWaitForFences(device, 1, &inFlightFences[currentFrame], VK_TRUE, UINT64_MAX);
@@ -307,7 +241,7 @@ public:
         // Aquire an image from the swap chain.
         // UINT64_MAX defines the timeout (in nanoseconds) for an image to become available. This disables that feature.
         // The fourth parameter is for a syncronization object.
-        VkResult result = vkAcquireNextImageKHR(device, swapChain, UINT64_MAX, imageAvailableSemaphores[currentFrame], VK_NULL_HANDLE, &imageIndex);
+        VkResult result = vkAcquireNextImageKHR(device, mSwapChain->SwapChain(), UINT64_MAX, imageAvailableSemaphores[currentFrame], VK_NULL_HANDLE, &imageIndex);
         // If the Swap Chain is out of date and needs to be recreated.
         if (result == VK_ERROR_OUT_OF_DATE_KHR) {
             recreateSwapChain();
@@ -356,7 +290,7 @@ public:
         presentInfo.waitSemaphoreCount = 1;
         presentInfo.pWaitSemaphores = signalSemaphores;
 
-        VkSwapchainKHR swapChains[] = { swapChain };
+        VkSwapchainKHR swapChains[] = { mSwapChain->SwapChain() };
         presentInfo.swapchainCount = 1;
         presentInfo.pSwapchains = swapChains;
         presentInfo.pImageIndices = &imageIndex;
@@ -397,7 +331,7 @@ public:
         // The view transformation. Loot at the geometry at a 45 degree angle.
         ubo.view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
         // 45 degree field of view for the projective.
-        ubo.proj = glm::perspective(glm::radians(45.0f), swapChainExtent.width / (float)swapChainExtent.height, 0.1f, 10.0f);
+        ubo.proj = glm::perspective(glm::radians(45.0f), mSwapChain->Extent().width / (float)mSwapChain->Extent().height, 0.1f, 10.0f);
 
         // Since GLM was desinged for OpenGL (which has its Y coordinate inverted) we need to flip the Y value in the project matrix.
         ubo.proj[1][1] *= -1;
@@ -413,11 +347,11 @@ public:
     // Cleanup the swap chain.
     void cleanupSwapChain() {
 
-        vkDestroyImageView(device, depthImageView, nullptr);
-        vkDestroyImage(device, depthImage, nullptr);
-        vkFreeMemory(device, depthImageMemory, nullptr);
+        vkDestroyImageView(device, mSwapChain->DepthImageView(), nullptr);
+        vkDestroyImage(device, mSwapChain->DepthImage(), nullptr);
+        vkFreeMemory(device, mSwapChain->DepthImageMemory(), nullptr);
 
-        for (auto framebuffer : swapChainFrameBuffers) {
+        for (auto framebuffer : mSwapChain->FrameBuffers()) {
             vkDestroyFramebuffer(device, framebuffer, nullptr);
         }
 
@@ -427,14 +361,14 @@ public:
         vkDestroyRenderPass(device, renderPass, nullptr);
 
         // Destroy the image views.
-        for (auto imageView : swapChainImageViews) {
+        for (auto imageView : mSwapChain->ImageViews()) {
             vkDestroyImageView(device, imageView, nullptr);
         }
 
         // Destroy the swap chain.
-        vkDestroySwapchainKHR(device, swapChain, nullptr);
+        vkDestroySwapchainKHR(device, mSwapChain->SwapChain(), nullptr);
 
-        for (size_t i = 0; i < swapChainImages.size(); i++) {
+        for (size_t i = 0; i < mSwapChain->Images().size(); i++) {
             vkDestroyBuffer(device, uniformBuffers[i], nullptr);
             vkFreeMemory(device, uniformBuffersMemory[i], nullptr);
         }
@@ -508,38 +442,9 @@ public:
         return true;
     }
 
-    void CreateDepthResources();
-
     // Check if the specified format has a stencil component.
     bool hasStencilComponent(VkFormat format) {
         return format == VK_FORMAT_D32_SFLOAT_S8_UINT || format == VK_FORMAT_D24_UNORM_S8_UINT;
-    }
-
-    // Find the depth format.
-    VkFormat findDepthFormat() {
-        return findSupportedFormat(
-            { VK_FORMAT_D32_SFLOAT, VK_FORMAT_D32_SFLOAT_S8_UINT, VK_FORMAT_D24_UNORM_S8_UINT },
-            VK_IMAGE_TILING_OPTIMAL,
-            VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT
-        );
-    }
-
-    // Find a good format to use for the image.
-    VkFormat findSupportedFormat(const std::vector<VkFormat>& candidates, VkImageTiling tiling, VkFormatFeatureFlags features) {
-        for (VkFormat format : candidates) {
-            VkFormatProperties props;
-            vkGetPhysicalDeviceFormatProperties(physicalDevice, format, &props);
-            // Check for linear and optimal tiling.
-            if (tiling == VK_IMAGE_TILING_LINEAR && (props.linearTilingFeatures & features) == features) {
-                return format;
-            }
-            else if (tiling == VK_IMAGE_TILING_OPTIMAL && (props.optimalTilingFeatures & features) == features) {
-                return format;
-            }
-        }
-
-        // If no good options are found, throw an exception.
-        throw std::runtime_error("Failed to find supported format!");
     }
 
     /*void createTextureSampler() {
@@ -800,20 +705,20 @@ public:
 
     // Create the descriptor sets (pool)
     void CreateDescriptorSets() {
-        std::vector<VkDescriptorSetLayout> layouts(swapChainImages.size(), descriptorSetLayout);
+        std::vector<VkDescriptorSetLayout> layouts(mSwapChain->Images().size(), descriptorSetLayout);
         VkDescriptorSetAllocateInfo allocInfo{};
         allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
         allocInfo.descriptorPool = descriptorPool;
-        allocInfo.descriptorSetCount = static_cast<uint32_t>(swapChainImages.size());
+        allocInfo.descriptorSetCount = static_cast<uint32_t>(mSwapChain->Images().size());
         allocInfo.pSetLayouts = layouts.data();
 
-        descriptorSets.resize(swapChainImages.size());
+        descriptorSets.resize(mSwapChain->Images().size());
         if (vkAllocateDescriptorSets(device, &allocInfo, descriptorSets.data()) != VK_SUCCESS) {
             throw std::runtime_error("Failed to allocate descriptor sets!");
         }
 
         // populate the descriptors
-        for (size_t i = 0; i < swapChainImages.size(); i++) {
+        for (size_t i = 0; i < mSwapChain->Images().size(); i++) {
             VkDescriptorBufferInfo bufferInfo{};
             bufferInfo.buffer = uniformBuffers[i];
             bufferInfo.offset = 0;
@@ -858,16 +763,16 @@ public:
         std::array<VkDescriptorPoolSize, 2> poolSizes{};
         // For the uniform descriptor
         poolSizes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-        poolSizes[0].descriptorCount = static_cast<uint32_t>(swapChainImages.size());
+        poolSizes[0].descriptorCount = static_cast<uint32_t>(mSwapChain->Images().size());
         // For the image sample descriptor.
         poolSizes[1].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-        poolSizes[1].descriptorCount = static_cast<uint32_t>(swapChainImages.size());
+        poolSizes[1].descriptorCount = static_cast<uint32_t>(mSwapChain->Images().size());
 
         VkDescriptorPoolCreateInfo poolInfo{};
         poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
         poolInfo.poolSizeCount = static_cast<uint32_t>(poolSizes.size());
         poolInfo.pPoolSizes = poolSizes.data();
-        poolInfo.maxSets = static_cast<uint32_t>(swapChainImages.size());
+        poolInfo.maxSets = static_cast<uint32_t>(mSwapChain->Images().size());
 
         if (vkCreateDescriptorPool(device, &poolInfo, nullptr, &descriptorPool) != VK_SUCCESS) {
             throw std::runtime_error("Failed to create descriptor pool!");
@@ -877,11 +782,11 @@ public:
     // Create the uniform buffer for each swapchain image.
     void CreateUniformBuffers() {
         VkDeviceSize bufferSize = sizeof(UniformBufferObject);
-        uniformBuffers.resize(swapChainImages.size());
-        uniformBuffersMemory.resize(swapChainImages.size());
+        uniformBuffers.resize(mSwapChain->Images().size());
+        uniformBuffersMemory.resize(mSwapChain->Images().size());
 
         // Create a uniform buffer for each swapchain image.
-        for (size_t i = 0; i < swapChainImages.size(); i++) {
+        for (size_t i = 0; i < mSwapChain->Images().size(); i++) {
             createBuffer(bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, uniformBuffers[i], uniformBuffersMemory[i]);
         }
     }
@@ -1007,14 +912,11 @@ public:
         vkDeviceWaitIdle(device);
 
         cleanupSwapChain();
-
-        SwapChainInfo info;
-        CreateSwapChain(info);
-        CreateImageViews();
+        mSwapChain->InitializeSwapChain(window, surface, physicalDevice, device);
         CreateRenderPass();
-        mGraphicsPipeline->UpdatePipeline(device, renderPass, swapChainExtent, descriptorSetLayout);
-        CreateDepthResources();
-        CreateFrameBuffers();
+        mGraphicsPipeline->UpdatePipeline(device, renderPass, mSwapChain->Extent(), descriptorSetLayout);
+        mSwapChain->CreateDepthImage(physicalDevice, device);
+        mSwapChain->CreateFrameBuffers(device, renderPass);
         CreateUniformBuffers();
         CreateDescriptorPool();
         CreateDescriptorSets();
@@ -1025,7 +927,7 @@ public:
     void CreateSyncObjects();
 
     void CreateCommandBuffers() {
-        commandBuffers.resize(swapChainFrameBuffers.size());
+        commandBuffers.resize(mSwapChain->FrameBuffers().size());
 
         VkCommandBufferAllocateInfo allocInfo{};
         allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
@@ -1050,9 +952,9 @@ public:
             VkRenderPassBeginInfo renderPassInfo{};
             renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
             renderPassInfo.renderPass = renderPass;
-            renderPassInfo.framebuffer = swapChainFrameBuffers[i];
+            renderPassInfo.framebuffer = mSwapChain->FrameBuffers()[i];
             renderPassInfo.renderArea.offset = { 0, 0 };
-            renderPassInfo.renderArea.extent = swapChainExtent;
+            renderPassInfo.renderArea.extent = mSwapChain->Extent();
 
             std::array<VkClearValue, 2> clearValues{};
 
@@ -1103,22 +1005,10 @@ public:
         }
     }
 
-    void CreateFrameBuffers();
-
     void CreateRenderPass();
     void CreateGraphicsPipeline(const GraphicsPipelineDescriptor& descriptor);
 
-    // Needs to be private.
-    void CreateImageViews() {
-        // Resize to be the same size as the number of swap chain images.
-        swapChainImageViews.resize(swapChainImages.size());
-
-        for (size_t i = 0; i < swapChainImages.size(); i++) {
-            swapChainImageViews[i] = createImageView(swapChainImages[i], swapChainImageFormat, VK_IMAGE_ASPECT_COLOR_BIT);
-        }
-    }
-
-    void CreateSwapChain(SwapChainInfo swapChainInfo);
+    void SetupSwapChain(const SwapChainDescriptor descriptor);
 
     void CreateGLFWSurface();
 
@@ -1137,7 +1027,7 @@ public:
         // Check is swap chain is adequate.
         bool swapChainAdequate = false;
         if (extensionSupported) {
-            SwapChainSupportDetails swapChainSupport = querySwapChainSupport(device);
+            VulkanSwapChain::SwapChainSupportDetails swapChainSupport = VulkanSwapChain::QuerySwapChainSupport(device, surface);
             swapChainAdequate = !swapChainSupport.formats.empty() && !swapChainSupport.presentModes.empty();
         }
 
@@ -1202,77 +1092,6 @@ public:
         }
 
         return indices;
-    }
-
-    // Query the support for swap chains.
-    SwapChainSupportDetails querySwapChainSupport(VkPhysicalDevice device) {
-        SwapChainSupportDetails details;
-        vkGetPhysicalDeviceSurfaceCapabilitiesKHR(device, surface, &details.capabilities);
-
-        // Querying the supported surface formats.
-        uint32_t formatCount;
-        vkGetPhysicalDeviceSurfaceFormatsKHR(device, surface, &formatCount, nullptr);
-        if (formatCount != 0) {
-            details.formats.resize(formatCount);
-            vkGetPhysicalDeviceSurfaceFormatsKHR(device, surface, &formatCount, details.formats.data());
-        }
-
-        // Querying the supported presentation modes.
-        uint32_t presentModeCount;
-        vkGetPhysicalDeviceSurfacePresentModesKHR(device, surface, &presentModeCount, nullptr);
-
-        if (presentModeCount != 0) {
-            details.presentModes.resize(presentModeCount);
-            vkGetPhysicalDeviceSurfacePresentModesKHR(device, surface, &presentModeCount, details.presentModes.data());
-        }
-        return details;
-    }
-
-    // Choose the best SwapSurfaceFormat
-    VkSurfaceFormatKHR chooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& availableFormats) {
-        for (const auto& availableFormat : availableFormats) {
-            if (availableFormat.format == VK_FORMAT_B8G8R8A8_SRGB && availableFormat.colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR)
-                return availableFormat;
-        }
-
-        return availableFormats[0];
-    }
-
-    // Choose a swap present mode.
-    VkPresentModeKHR chooseSwapPresentMode(const std::vector<VkPresentModeKHR>& availablePresentModes) {
-        for (const auto& availablePresentMode : availablePresentModes) {
-            // Best one if energy usage is not a concern. Low latency and no screen tearing.
-            if (availablePresentMode == VK_PRESENT_MODE_MAILBOX_KHR) {
-                std::cout << "TEST EWF" << std::endl;
-                return availablePresentMode;
-            }
-        }
-
-        // Safe and guareented to exist. No screen tearing but could cause latenecy (like vsync).
-        return VK_PRESENT_MODE_FIFO_KHR;
-    }
-
-    // Configure a good swap extent.
-    VkExtent2D chooseSwapExtent(const VkSurfaceCapabilitiesKHR& capabilities) {
-        if (capabilities.currentExtent.width != UINT32_MAX) {
-            return capabilities.currentExtent;
-        }
-        else {
-            int width, height;
-            glfwGetFramebufferSize(window, &width, &height);
-
-            VkExtent2D actualExtent = {
-                static_cast<uint32_t>(width),
-                static_cast<uint32_t>(height)
-            };
-
-            // Clamp the value of width and height between the allowed minimum and maximum extents that are supported
-            // by the implementation.
-            actualExtent.width = std::max(capabilities.minImageExtent.width, std::min(capabilities.maxImageExtent.width, actualExtent.width));
-            actualExtent.height = std::max(capabilities.minImageExtent.height, std::min(capabilities.maxImageExtent.height, actualExtent.height));
-
-            return actualExtent;
-        }
     }
 
     void populateDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT& createInfo) {

@@ -3,8 +3,11 @@
 #ifndef VULKAN_RENDERER_TYPES
 #define VULKAN_RENDERER_TYPES
 
+#include "VulkanIncludes.hpp"
+
 #include <string>
 #include <optional>
+#include <array>
 
 struct VulkanInstanceInfo
 {
@@ -12,13 +15,55 @@ struct VulkanInstanceInfo
 	std::uint32_t ApplicationVersion;
 };
 
-struct SwapChainInfo
-{
-	/// <summary>
-	/// The number of images the swap chain should use.
-	/// </summary>
-	std::optional<int> ImageCount;
+// The Queue families.
+struct QueueFamilyIndices {
+    std::optional<uint32_t> graphicsFamily;
+    std::optional<uint32_t> presentFamily;
+
+    bool isComplete() {
+        return graphicsFamily.has_value() && presentFamily.has_value();
+    }
 };
+
+static QueueFamilyIndices FindQueueFamilies(VkSurfaceKHR surface, VkPhysicalDevice device) {
+    QueueFamilyIndices indices;
+
+    uint32_t queueFamilyCount = 0;
+    vkGetPhysicalDeviceQueueFamilyProperties(device, &queueFamilyCount, nullptr);
+
+    std::vector<VkQueueFamilyProperties> queueFamilies(queueFamilyCount);
+    vkGetPhysicalDeviceQueueFamilyProperties(device, &queueFamilyCount, queueFamilies.data());
+
+    // Find a queue family that supports QUEUE GRAPHICS BIT.
+
+    int i = 0;
+    for (const auto& queueFamily : queueFamilies)
+    {
+        if (queueFamily.queueFlags & VK_QUEUE_GRAPHICS_BIT)
+        {
+            indices.graphicsFamily = i;
+        }
+
+        // Find one that supports presentation. (Can be different than the graphics queue)
+        VkBool32 presentSupport = false;
+        vkGetPhysicalDeviceSurfaceSupportKHR(device, i, surface, &presentSupport);
+
+        if (presentSupport)
+        {
+            indices.presentFamily = i;
+        }
+
+        // Check if the int is populated.
+        if (indices.isComplete())
+        {
+            break;
+        }
+
+        i++;
+    }
+
+    return indices;
+}
 
 /**
 
