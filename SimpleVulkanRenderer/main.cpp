@@ -92,7 +92,7 @@ int main() {
     pipelineDescriptor.FragmentShader = CreateFragmentShader(renderer.device);
     renderer.CreateGraphicsPipeline(pipelineDescriptor);
 
-    renderer.CreateCommandPool();
+    renderer.CreateCommandPool("Test");
     //renderer.CreateTextureImage();
     //renderer.CreateTextureImageView();
     //createTextureSampler();
@@ -102,7 +102,7 @@ int main() {
     renderer.CreateUniformBuffers();
     renderer.CreateDescriptorPool();
     renderer.CreateDescriptorSets();
-    renderer.CreateCommandBuffers();
+    renderer.CreateDefaultRenderCommandBuffers();
     renderer.CreateSyncObjects();
 
     // Main Loop::
