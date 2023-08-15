@@ -29,8 +29,7 @@ constexpr auto HEIGHT = 600;
     Scene Buffers
     =============================
 */
-VkBuffer vertexBuffer;
-VkDeviceMemory vertexBufferMemory;
+VulkanBuffer vertexBuffer;
 std::vector<Vertex> vertices;
 
 VkBuffer indexBuffer;
@@ -84,7 +83,7 @@ std::shared_ptr<VulkanFragmentShader> CreateFragmentShader(VkDevice device)
 void SetupBuffers(VulkanRenderer& renderer)
 {
     // Vertex Buffers
-    renderer.mBufferUtilities->CreateVertexBuffer(vertices, vertexBuffer, vertexBufferMemory);
+    vertexBuffer = renderer.mBufferUtilities->CreateVertexBuffer(vertices);
 
     renderer.mBufferUtilities->CreateIndexBuffer(indices, indexBuffer, indexBufferMemory);
 }
@@ -94,8 +93,7 @@ void CleanUpBuffers(VulkanRenderer& renderer)
     vkDestroyBuffer(renderer.device, indexBuffer, nullptr);
     vkFreeMemory(renderer.device, indexBufferMemory, nullptr);
 
-    vkDestroyBuffer(renderer.device, vertexBuffer, nullptr);
-    vkFreeMemory(renderer.device, vertexBufferMemory, nullptr);
+    vertexBuffer.DestoryBuffer(renderer.device);
 }
 
 int main() {

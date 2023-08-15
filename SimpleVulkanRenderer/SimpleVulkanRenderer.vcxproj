@@ -157,6 +157,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp" />
+    <ClCompile Include="VulkanBuffer.cpp" />
     <ClCompile Include="VulkanBufferUtilities.cpp" />
     <ClCompile Include="VulkanCommandBuffer.cpp" />
     <ClCompile Include="VulkanCommandPool.cpp" />
@@ -174,6 +175,7 @@
     <ClInclude Include="GreedyMesh.h" />
     <ClInclude Include="Node.h" />
     <ClInclude Include="Queue.h" />
+    <ClInclude Include="VulkanBuffer.hpp" />
     <ClInclude Include="VulkanBufferUtilities.hpp" />
     <ClInclude Include="VulkanCommandBuffer.hpp" />
     <ClInclude Include="VulkanCommandPool.hpp" />

@@ -59,6 +59,14 @@ void VulkanBufferUtilities::CreateBuffer(VkDeviceSize size, VkBufferUsageFlags u
     vkBindBufferMemory(mDevice, outBuffer, outBufferMemory, 0);
 }
 
+VulkanBuffer VulkanBufferUtilities::CreateBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties)
+{
+    VulkanBuffer buffer;
+    CreateBuffer(size, usage, properties, buffer, buffer);
+
+    return buffer;
+}
+
 void VulkanBufferUtilities::CopyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size, VkCommandPool commandPool, VkQueue queue)
 {
     

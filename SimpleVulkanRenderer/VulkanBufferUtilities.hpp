@@ -3,6 +3,7 @@
 #define VULKAN_BUFFER_UTILITIES_H
 
 #include "VulkanIncludes.hpp"
+#include "VulkanBuffer.hpp"
 
 class VulkanBufferUtilities
 {
@@ -10,6 +11,7 @@ public:
 	VulkanBufferUtilities(VkPhysicalDevice physicalDevice, VkDevice device, VkCommandPool defaultCommandPool, VkQueue defaultGraphicsQueue);
 	
 	void CreateBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer& outBuffer, VkDeviceMemory& bufferMemory);
+	VulkanBuffer CreateBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties);
 	void CopyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size, VkCommandPool commandPool = nullptr, VkQueue queue = nullptr);
 
 	// ---------------------------------------------------
@@ -39,6 +41,14 @@ public:
 	}
 
 	template<typename T>
+	VulkanBuffer CreateVertexBuffer(std::vector<T> vertexData, VkCommandPool commandPool = nullptr, VkQueue queue = nullptr)
+	{
+		VulkanBuffer buffer;
+		CreateVertexBuffer(vertexData, buffer, buffer, commandPool, queue);
+		return buffer;
+	}
+
+	template<typename T>
 	void CreateIndexBuffer(std::vector<T> indexData, VkBuffer& outIndexBuffer, VkDeviceMemory& outIndexBufferMemory, VkCommandPool commandPool = nullptr, VkQueue queue = nullptr)
 	{
 		VkDeviceSize bufferSize = sizeof(indexData[0]) * indexData.size();
@@ -60,6 +70,14 @@ public:
 
 		vkDestroyBuffer(mDevice, stagingBuffer, nullptr);
 		vkFreeMemory(mDevice, stagingBufferMemory, nullptr);
+	}
+
+	template<typename T>
+	VulkanBuffer CreateIndexBuffer(std::vector<T> indexData, VkCommandPool commandPool = nullptr, VkQueue queue = nullptr)
+	{
+		VulkanBuffer buffer;
+		CreateIndexBuffer(indexData, buffer, buffer, commandPool, queue);
+		return buffer;
 	}
 
 private:
