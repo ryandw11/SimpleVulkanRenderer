@@ -278,46 +278,6 @@ void VulkanRenderer::CreateRenderPass()
     }
 }
 
-void VulkanRenderer::CreateDescriptorSetLayout()
-{
-   /* // A descriptor for shaders.
-    VkDescriptorSetLayoutBinding uboLayoutBinding{};
-    // The binding that matches with the shader code.
-    uboLayoutBinding.binding = 0;
-    // The type is a uniform
-    uboLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-    // A uniform object could be an arary. This defines the number of objects.
-    uboLayoutBinding.descriptorCount = 1;
-    // We need to specifiy what stage the descriptor is going to be used. In this case
-    // it is the vertex stage. (Multiple can be used)
-    uboLayoutBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
-    // For image sampling descriptors.
-    uboLayoutBinding.pImmutableSamplers = nullptr;
-
-    // Create the descripter for image sampling for textures.
-    // This is done in the fragment shader stange instead of the vertex stage.
-    VkDescriptorSetLayoutBinding samplerLayoutBinding{};
-    samplerLayoutBinding.binding = 1;
-    samplerLayoutBinding.descriptorCount = 1;
-    samplerLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    samplerLayoutBinding.pImmutableSamplers = nullptr;
-    samplerLayoutBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
-
-    // The array of descriptor bindings.
-    std::array<VkDescriptorSetLayoutBinding, 2> bindings = { uboLayoutBinding, samplerLayoutBinding };
-
-    VkDescriptorSetLayoutCreateInfo layoutInfo{};
-    layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-    layoutInfo.bindingCount = static_cast<uint32_t>(bindings.size());
-    layoutInfo.pBindings = bindings.data();
-
-    // Create the descriptor set layout.
-    if (vkCreateDescriptorSetLayout(device, &layoutInfo, nullptr, &descriptorSetLayout) != VK_SUCCESS)
-    {
-        throw std::runtime_error("Failed to create descriptor set layout!");
-    }*/
-}
-
 void VulkanRenderer::CreateGraphicsPipeline(const GraphicsPipelineDescriptor& descriptor)
 {
     if (mGraphicsPipeline != nullptr)

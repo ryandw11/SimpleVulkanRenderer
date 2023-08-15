@@ -14,6 +14,7 @@
     <ClCompile Include="VulkanCommandBuffer.cpp" />
     <ClCompile Include="VulkanDescriptorLayout.cpp" />
     <ClCompile Include="VulkanDescriptorSetBuilder.cpp" />
+    <ClCompile Include="VulkanBufferUtilities.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="3DArray.h">
@@ -61,10 +62,17 @@
     <ClInclude Include="VulkanDescriptorLayout.hpp">
       <Filter>Headers</Filter>
     </ClInclude>
-    <ClInclude Include="VulkanDescriptorSetBuilder.hpp" />
-    <ClInclude Include="VulkanRendererMemeoryUtils.hpp" />
     <ClInclude Include="VulkanFrameObject.hpp">
       <Filter>Framebuffer</Filter>
+    </ClInclude>
+    <ClInclude Include="VulkanDescriptorSetBuilder.hpp">
+      <Filter>Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="VulkanRendererMemeoryUtils.hpp">
+      <Filter>Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="VulkanBufferUtilities.hpp">
+      <Filter>Headers</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

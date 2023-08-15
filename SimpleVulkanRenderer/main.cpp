@@ -24,6 +24,19 @@
 constexpr auto WIDTH = 800;
 constexpr auto HEIGHT = 600;
 
+/*
+    =============================
+    Scene Buffers
+    =============================
+*/
+VkBuffer vertexBuffer;
+VkDeviceMemory vertexBufferMemory;
+std::vector<Vertex> vertices;
+
+VkBuffer indexBuffer;
+VkDeviceMemory indexBufferMemory;
+std::vector<uint32_t> indices;
+
 // Load the model.
 void loadModel(VulkanRenderer& renderer) {
     srand(time(NULL));
@@ -43,11 +56,11 @@ void loadModel(VulkanRenderer& renderer) {
     auto stopTime = std::chrono::high_resolution_clock::now();
     auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(stopTime - startTime);
     std::cout << "Execution Time: " << duration.count() << " ms";
-    renderer.vertices.reserve(renderer.vertices.size() + output.verticies.size());
-    renderer.vertices.insert(renderer.vertices.end(), output.verticies.begin(), output.verticies.end());
+    vertices.reserve(vertices.size() + output.verticies.size());
+    vertices.insert(vertices.end(), output.verticies.begin(), output.verticies.end());
 
-    renderer.indices.reserve(renderer.indices.size() + output.indicies.size());
-    renderer.indices.insert(renderer.indices.end(), output.indicies.begin(), output.indicies.end());
+    indices.reserve(indices.size() + output.indicies.size());
+    indices.insert(indices.end(), output.indicies.begin(), output.indicies.end());
 }
 
 std::shared_ptr<VulkanVertexShader> CreateVertexShader(VkDevice device)
@@ -66,6 +79,23 @@ std::shared_ptr<VulkanFragmentShader> CreateFragmentShader(VkDevice device)
     auto fragmentShader = std::make_shared<VulkanFragmentShader>(device, "main", "shaders/frag.spv");
 
     return fragmentShader;
+}
+
+void SetupBuffers(VulkanRenderer& renderer)
+{
+    // Vertex Buffers
+    renderer.mBufferUtilities->CreateVertexBuffer(vertices, vertexBuffer, vertexBufferMemory);
+
+    renderer.mBufferUtilities->CreateIndexBuffer(indices, indexBuffer, indexBufferMemory);
+}
+
+void CleanUpBuffers(VulkanRenderer& renderer)
+{
+    vkDestroyBuffer(renderer.device, indexBuffer, nullptr);
+    vkFreeMemory(renderer.device, indexBufferMemory, nullptr);
+
+    vkDestroyBuffer(renderer.device, vertexBuffer, nullptr);
+    vkFreeMemory(renderer.device, vertexBufferMemory, nullptr);
 }
 
 int main() {
@@ -100,12 +130,12 @@ int main() {
     renderer.CreateGraphicsPipeline(pipelineDescriptor);
 
     renderer.CreateCommandPool("Test");
+    renderer.CreateBufferUtilities();
     //renderer.CreateTextureImage();
     //renderer.CreateTextureImageView();
     //createTextureSampler();
     loadModel(renderer);
-    renderer.CreateVertexBuffer();
-    renderer.CreateIndexBuffer();
+    SetupBuffers(renderer);
     renderer.CreateUniformBuffers();
 
     // Setup descriptor sets
@@ -115,7 +145,7 @@ int main() {
     //descriptorSetBuilder->DescribeImageSample(1, 0, renderer.textureImageView, renderer.textureSampler);
     descriptorSetBuilder->UpdateDescriptorSets();
 
-    renderer.CreateDefaultRenderCommandBuffers();
+    renderer.CreateDefaultRenderCommandBuffers(vertexBuffer, indexBuffer, static_cast<uint32_t>(indices.size()));
     renderer.CreateSyncObjects();
 
     // Main Loop::
@@ -161,6 +191,7 @@ int main() {
 
     vkDeviceWaitIdle(renderer.device);
 
+    CleanUpBuffers(renderer);
     renderer.cleanup();
 
     return EXIT_SUCCESS;
