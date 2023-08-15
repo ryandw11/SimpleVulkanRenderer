@@ -90,7 +90,7 @@ int main() {
     auto descriptorHandler = std::make_shared<VulkanDescriptorLayout>(renderer.device);
     renderer.mDescriptorHandler = descriptorHandler;
     descriptorHandler->UniformBufferBinding(/*Binding*/ 0, /*Count*/ 1, VK_SHADER_STAGE_VERTEX_BIT);
-    descriptorHandler->ImageSamplerBinding(1, 1, VK_SHADER_STAGE_FRAGMENT_BIT);
+    //descriptorHandler->ImageSamplerBinding(1, 1, VK_SHADER_STAGE_FRAGMENT_BIT);
     descriptorHandler->BuildLayout();
     
 
@@ -109,10 +109,10 @@ int main() {
     renderer.CreateUniformBuffers();
 
     // Setup descriptor sets
-    //descriptorHandler->CreateDescriptorPool(renderer.mSwapChain->FrameBuffers().size());
+    descriptorHandler->CreateDescriptorPool(renderer.mSwapChain->FrameBuffers().size());
     auto descriptorSetBuilder = descriptorHandler->DescriptorSetBuilder();
     descriptorSetBuilder->DescribeBuffer(0, 0, renderer.uniformBuffers, sizeof(UniformBufferObject));
-    descriptorSetBuilder->DescribeImageSample(1, 0, renderer.textureImageView, renderer.textureSampler);
+    //descriptorSetBuilder->DescribeImageSample(1, 0, renderer.textureImageView, renderer.textureSampler);
     descriptorSetBuilder->UpdateDescriptorSets();
 
     renderer.CreateDefaultRenderCommandBuffers();
