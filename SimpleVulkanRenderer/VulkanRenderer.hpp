@@ -33,6 +33,7 @@
 #include "VulkanRendererTypes.hpp"
 #include "VulkanGraphicsPipeline.hpp"
 #include "VulkanSwapChain.hpp"
+#include "VulkanDescriptorLayout.hpp"
 #include "VulkanCommandPool.hpp"
 #include "VulkanCommandBuffer.hpp"
 
@@ -158,7 +159,7 @@ public:
 
     VkRenderPass renderPass;
     // The layout for shader descriptors.
-    VkDescriptorSetLayout descriptorSetLayout;
+    //VkDescriptorSetLayout descriptorSetLayout;
 
     // Manages allocation of Command Buffers.
     std::vector<std::shared_ptr<VulkanCommandPool>> mCommandPools;
@@ -187,8 +188,8 @@ public:
     std::vector<VkBuffer> uniformBuffers;
     std::vector<VkDeviceMemory> uniformBuffersMemory;
 
-    VkDescriptorPool descriptorPool;
-    std::vector<VkDescriptorSet> descriptorSets;
+    //VkDescriptorPool descriptorPool;
+    //std::vector<VkDescriptorSet> descriptorSets;
 
     VkImage textureImage;
     VkDeviceMemory textureImageMemory;
@@ -201,6 +202,7 @@ public:
     */
     std::shared_ptr<VulkanGraphicsPipeline> mGraphicsPipeline;
     std::shared_ptr<VulkanSwapChain> mSwapChain;
+    std::shared_ptr<VulkanDescriptorLayout> mDescriptorHandler;
 
     /*
 
@@ -363,7 +365,7 @@ public:
             vkFreeMemory(device, uniformBuffersMemory[i], nullptr);
         }
 
-        vkDestroyDescriptorPool(device, descriptorPool, nullptr);
+        vkDestroyDescriptorPool(device, mDescriptorHandler->BuiltDescriptorPool(), nullptr);
     }
 
     void cleanup() {
@@ -375,7 +377,7 @@ public:
         vkDestroyImage(device, textureImage, nullptr);
         vkFreeMemory(device, textureImageMemory, nullptr);
 
-        vkDestroyDescriptorSetLayout(device, descriptorSetLayout, nullptr);
+        vkDestroyDescriptorSetLayout(device, mDescriptorHandler->Layout(), nullptr);
 
         vkDestroyBuffer(device, indexBuffer, nullptr);
         vkFreeMemory(device, indexBufferMemory, nullptr);
@@ -594,7 +596,7 @@ public:
 
     // Create the descriptor sets (pool)
     void CreateDescriptorSets() {
-        std::vector<VkDescriptorSetLayout> layouts(mSwapChain->Images().size(), descriptorSetLayout);
+        /*std::vector<VkDescriptorSetLayout> layouts(mSwapChain->Images().size(), descriptorSetLayout);
         VkDescriptorSetAllocateInfo allocInfo{};
         allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
         allocInfo.descriptorPool = descriptorPool;
@@ -643,12 +645,12 @@ public:
             descriptorWrites[1].pTexelBufferView = nullptr;
 
             vkUpdateDescriptorSets(device, static_cast<uint32_t>(descriptorWrites.size()), descriptorWrites.data(), 0, nullptr);
-        }
+        }*/
 
     }
 
     void CreateDescriptorPool() {
-        // We need to define the types that our descriptor sets are going to contain.
+        /*// We need to define the types that our descriptor sets are going to contain.
         std::array<VkDescriptorPoolSize, 2> poolSizes{};
         // For the uniform descriptor
         poolSizes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
@@ -665,7 +667,7 @@ public:
 
         if (vkCreateDescriptorPool(device, &poolInfo, nullptr, &descriptorPool) != VK_SUCCESS) {
             throw std::runtime_error("Failed to create descriptor pool!");
-        }
+        }*/
     }
 
     // Create the uniform buffer for each swapchain image.
@@ -801,7 +803,7 @@ public:
         cleanupSwapChain();
         mSwapChain->InitializeSwapChain(window, surface, physicalDevice, device);
         CreateRenderPass();
-        mGraphicsPipeline->UpdatePipeline(device, renderPass, mSwapChain->Extent(), descriptorSetLayout);
+        mGraphicsPipeline->UpdatePipeline(device, renderPass, mSwapChain->Extent(), mDescriptorHandler->Layout());
         mSwapChain->CreateDepthImage(physicalDevice, device);
         mSwapChain->CreateFrameBuffers(device, renderPass);
         CreateUniformBuffers();
@@ -821,7 +823,7 @@ public:
             commandBuffer->BindPipeline(mGraphicsPipeline->Pipeline());
             commandBuffer->BindVertexBuffer(vertexBuffer);
             commandBuffer->BindIndexBuffer(indexBuffer);
-            commandBuffer->BindDescriptorSet(mGraphicsPipeline->PipelineLayout(), descriptorSets[i]);
+            commandBuffer->BindDescriptorSet(mGraphicsPipeline->PipelineLayout(), mDescriptorHandler->DescriptorSetBuilder()->GetBuiltDescriptorSets()[i]);
             //vkCmdBindDescriptorSets(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, mGraphicsPipeline->PipelineLayout(), 0, 1, &descriptorSets[i], 0, nullptr);
             commandBuffer->DrawIndexed(static_cast<uint32_t>(indices.size()));
             commandBuffer->EndRenderPass();

@@ -280,7 +280,7 @@ void VulkanRenderer::CreateRenderPass()
 
 void VulkanRenderer::CreateDescriptorSetLayout()
 {
-    // A descriptor for shaders.
+   /* // A descriptor for shaders.
     VkDescriptorSetLayoutBinding uboLayoutBinding{};
     // The binding that matches with the shader code.
     uboLayoutBinding.binding = 0;
@@ -315,7 +315,7 @@ void VulkanRenderer::CreateDescriptorSetLayout()
     if (vkCreateDescriptorSetLayout(device, &layoutInfo, nullptr, &descriptorSetLayout) != VK_SUCCESS)
     {
         throw std::runtime_error("Failed to create descriptor set layout!");
-    }
+    }*/
 }
 
 void VulkanRenderer::CreateGraphicsPipeline(const GraphicsPipelineDescriptor& descriptor)
@@ -325,7 +325,7 @@ void VulkanRenderer::CreateGraphicsPipeline(const GraphicsPipelineDescriptor& de
         throw std::runtime_error("Graphics Pipeline already exists!");
     }
     mGraphicsPipeline = std::make_shared<VulkanGraphicsPipeline>( descriptor);
-    mGraphicsPipeline->UpdatePipeline(device, renderPass, mSwapChain->Extent(), descriptorSetLayout);
+    mGraphicsPipeline->UpdatePipeline(device, renderPass, mSwapChain->Extent(), mDescriptorHandler->Layout());
 }
 
 /// <summary>

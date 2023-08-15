@@ -85,7 +85,14 @@ int main() {
 
     SwapChainDescriptor swapChainDescriptor;
     renderer.SetupSwapChain(swapChainDescriptor);
-    renderer.CreateDescriptorSetLayout();
+    
+    // Setup descriptor layouts
+    auto descriptorHandler = std::make_shared<VulkanDescriptorLayout>(renderer.device);
+    renderer.mDescriptorHandler = descriptorHandler;
+    descriptorHandler->UniformBufferBinding(/*Binding*/ 0, /*Count*/ 1, VK_SHADER_STAGE_VERTEX_BIT);
+    descriptorHandler->ImageSamplerBinding(1, 1, VK_SHADER_STAGE_FRAGMENT_BIT);
+    descriptorHandler->BuildLayout();
+    
 
     GraphicsPipelineDescriptor pipelineDescriptor;
     pipelineDescriptor.VertexShader = CreateVertexShader(renderer.device);
@@ -100,8 +107,14 @@ int main() {
     renderer.CreateVertexBuffer();
     renderer.CreateIndexBuffer();
     renderer.CreateUniformBuffers();
-    renderer.CreateDescriptorPool();
-    renderer.CreateDescriptorSets();
+
+    // Setup descriptor sets
+    //descriptorHandler->CreateDescriptorPool(renderer.mSwapChain->FrameBuffers().size());
+    auto descriptorSetBuilder = descriptorHandler->DescriptorSetBuilder();
+    descriptorSetBuilder->DescribeBuffer(0, 0, renderer.uniformBuffers, sizeof(UniformBufferObject));
+    descriptorSetBuilder->DescribeImageSample(1, 0, renderer.textureImageView, renderer.textureSampler);
+    descriptorSetBuilder->UpdateDescriptorSets();
+
     renderer.CreateDefaultRenderCommandBuffers();
     renderer.CreateSyncObjects();
 
