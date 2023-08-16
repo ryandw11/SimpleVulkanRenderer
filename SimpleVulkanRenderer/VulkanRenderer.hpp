@@ -37,6 +37,7 @@
 #include "VulkanCommandPool.hpp"
 #include "VulkanCommandBuffer.hpp"
 #include "VulkanBufferUtilities.hpp"
+#include "VulkanPipelineHolderIntf.hpp"
 
 // The amount of frames the system should try to handle at once.
 const int MAX_FRAMES_IN_FLIGHT = 2;
@@ -143,9 +144,27 @@ struct UniformBufferObject {
     alignas(16) glm::mat4 proj;
 };
 
-class VulkanRenderer {
+class VulkanRenderer : public VulkanPipelineHolderIntf {
 public:
+    operator VkPhysicalDevice () override
+    {
+        return physicalDevice;
+    }
 
+    operator VkDevice () override
+    {
+        return device;
+    }
+
+    virtual operator VkQueue () override
+    {
+        return graphicsQueue;
+    }
+
+    virtual operator VkCommandPool () override
+    {
+        return mCommandPools[0]->CommandPool();
+    }
 public:
     GLFWwindow* window;
     VkInstance instance;
@@ -181,14 +200,6 @@ public:
     // Buffers for uniforms. (One for each swap chain image since multiple can be in flight).
     std::vector<VkBuffer> uniformBuffers;
     std::vector<VkDeviceMemory> uniformBuffersMemory;
-
-    //VkDescriptorPool descriptorPool;
-    //std::vector<VkDescriptorSet> descriptorSets;
-
-    VkImage textureImage;
-    VkDeviceMemory textureImageMemory;
-    VkImageView textureImageView;
-    VkSampler textureSampler;
 
 
     /*
@@ -367,11 +378,6 @@ public:
 
         cleanupSwapChain();
 
-        vkDestroySampler(device, textureSampler, nullptr);
-        vkDestroyImageView(device, textureImageView, nullptr);
-        vkDestroyImage(device, textureImage, nullptr);
-        vkFreeMemory(device, textureImageMemory, nullptr);
-
         vkDestroyDescriptorSetLayout(device, mDescriptorHandler->Layout(), nullptr);
 
             
@@ -428,166 +434,9 @@ public:
         return true;
     }
 
-    // Check if the specified format has a stencil component.
-    bool hasStencilComponent(VkFormat format) {
-        return format == VK_FORMAT_D32_SFLOAT_S8_UINT || format == VK_FORMAT_D24_UNORM_S8_UINT;
-    }
-
-    /*void createTextureSampler() {
-        VkSamplerCreateInfo samplerInfo{};
-        samplerInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
-        // Hoe to iterpolate texels (pixels) that are magnified or minified.
-        samplerInfo.magFilter = VK_FILTER_LINEAR;
-        samplerInfo.minFilter = VK_FILTER_LINEAR;
-        // Axes are called U, V, W instead of X, Y, Z.
-        // Describes what the texture should do, such as reapeat, clamp to edge, clamp to border, mirror repeat, etc.
-        samplerInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-        samplerInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-        samplerInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-        // Enable anisotropy to prevent the bluring of the texture when there are too many texels vs fragments.
-        samplerInfo.anisotropyEnable = VK_TRUE;
-
-        VkPhysicalDeviceProperties properties{};
-        vkGetPhysicalDeviceProperties(physicalDevice, &properties);
-        // Get the max anisotrophy supported by the physical device (the gpu) itself.
-        samplerInfo.maxAnisotropy = properties.limits.maxSamplerAnisotropy;
-        // The color that shows when you sample outside of the texture. Black, White, or Transparent are options. No other colors allowed.
-        samplerInfo.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
-        // Coordinates should be normalized between 0-1
-        samplerInfo.unnormalizedCoordinates = VK_FALSE;
-        samplerInfo.compareEnable = VK_FALSE;
-        samplerInfo.compareOp = VK_COMPARE_OP_ALWAYS;
-        samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
-        samplerInfo.mipLodBias = 0.0f;
-        samplerInfo.minLod = 0.0f;
-        samplerInfo.maxLod = 0.0f;
-
-        if (vkCreateSampler(device, &samplerInfo, nullptr, &textureSampler) != VK_SUCCESS) {
-            throw std::runtime_error("Failed to create texture sampler!");
-        }
-
-    }*/
-
-    // Create the Image View for the texture!
-    /*void createTextureImageView() {
-        textureImageView = createImageView(textureImage, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_ASPECT_COLOR_BIT);
-    }*/
-
-    VkImageView createImageView(VkImage image, VkFormat format, VkImageAspectFlags aspectFlags) {
-        VkImageViewCreateInfo viewInfo{};
-        viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-        viewInfo.image = image;
-        viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
-        viewInfo.format = format;
-        viewInfo.subresourceRange.aspectMask = aspectFlags;
-        viewInfo.subresourceRange.baseMipLevel = 0;
-        viewInfo.subresourceRange.levelCount = 1;
-        viewInfo.subresourceRange.baseArrayLayer = 0;
-        viewInfo.subresourceRange.layerCount = 1;
-
-        VkImageView imageView;
-
-        if (vkCreateImageView(device, &viewInfo, nullptr, &imageView) != VK_SUCCESS) {
-            throw std::runtime_error("Failed to create texture image view!");
-        }
-
-        return imageView;
-    }
-
     void CreateBufferUtilities()
     {
         mBufferUtilities = std::make_shared<VulkanBufferUtilities>(physicalDevice, device, mCommandPools[0]->CommandPool(), graphicsQueue);
-    }
-
-    // Create the texture image.
-    /*void createTextureImage() {
-        int texWidth, texHeight, texChannels;
-        // Load the image into pixels (unsigned char).
-        stbi_uc* pixels = stbi_load(TEXTURE_PATH.c_str(), &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
-        // Calculate the imageSize by multiplying the width, height, and 4 since there are 4 bytes per pixel (RGBA).
-        VkDeviceSize imageSize = texWidth * texHeight * 4;
-
-        if (!pixels) {
-            throw std::runtime_error("Failed to load texture image!");
-        }
-
-        // Create a standard staging buffer.
-        VkBuffer stagingBuffer;
-        VkDeviceMemory stagingBufferMemory;
-        createBuffer(imageSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer, stagingBufferMemory);
-
-        // Map the memory and copy it to the buffer like normal.
-        void* data;
-        vkMapMemory(device, stagingBufferMemory, 0, imageSize, 0, &data);
-        memcpy(data, pixels, static_cast<size_t>(imageSize));
-        vkUnmapMemory(device, stagingBufferMemory);
-
-        // Free the image.
-        stbi_image_free(pixels);
-
-        createImage(texWidth, texHeight, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-            textureImage, textureImageMemory);
-        transitionImageLayout(textureImage, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
-        copyBufferToImage(stagingBuffer, textureImage, static_cast<uint32_t>(texWidth), static_cast<uint32_t>(texHeight));
-        transitionImageLayout(textureImage, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-
-        vkDestroyBuffer(device, stagingBuffer, nullptr);
-        vkFreeMemory(device, stagingBufferMemory, nullptr);
-    }*/
-
-    /*void createImage(uint32_t width, uint32_t height, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage,
-        VkMemoryPropertyFlags properties, VkImage& image, VkDeviceMemory& imageMemory) {
-        // Define the information for the image.
-        VkImageCreateInfo imageInfo{};
-        imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
-        imageInfo.imageType = VK_IMAGE_TYPE_2D;
-        imageInfo.extent.width = width;
-        imageInfo.extent.height = height;
-        // 3D images can be used for voxels.
-        imageInfo.extent.depth = 1;
-        imageInfo.mipLevels = 1;
-        imageInfo.arrayLayers = 1;
-
-        imageInfo.format = format;
-        imageInfo.tiling = tiling;
-        imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-        // Define the usage for the image. The image will be used as the destination of the buffer.
-        imageInfo.usage = usage;
-        // Image will only be used by one queue family.
-        imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-        imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
-        imageInfo.flags = 0;
-
-        if (vkCreateImage(device, &imageInfo, nullptr, &image) != VK_SUCCESS) {
-            throw std::runtime_error("Failed to create image!");
-        }
-
-        // Allocate memory for the image.
-        VkMemoryRequirements memRequirements;
-        vkGetImageMemoryRequirements(device, image, &memRequirements);
-
-        VkMemoryAllocateInfo allocInfo{};
-        allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-        allocInfo.allocationSize = memRequirements.size;
-        allocInfo.memoryTypeIndex = findMemoryType(memRequirements.memoryTypeBits, properties);
-
-        if (vkAllocateMemory(device, &allocInfo, nullptr, &imageMemory) != VK_SUCCESS) {
-            throw std::runtime_error("Failed to allocate image memory!");
-        }
-
-        vkBindImageMemory(device, image, imageMemory, 0);
-    }*/
-
-    void copyBufferToImage(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height) {
-        auto commandBuffer = CreateSingleUseCommandBuffer(device, mCommandPools[0]->CommandPool());;
-        commandBuffer->CopyBufferToImage(buffer, image, width, height);
-        commandBuffer->SubmitSingleUseCommand(device, graphicsQueue);
-    }
-
-    void transitionImageLayout(VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout) {
-        auto commandBuffer = CreateSingleUseCommandBuffer(device, mCommandPools[0]->CommandPool());;
-        commandBuffer->TransitionImageLayout(image, format, oldLayout, newLayout);
-        commandBuffer->SubmitSingleUseCommand(device, graphicsQueue);
     }
 
     // Create the uniform buffer for each swapchain image.

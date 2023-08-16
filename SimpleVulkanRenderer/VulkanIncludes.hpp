@@ -15,9 +15,9 @@
 #define GLM_ENABLE_EXPERIMENTAL
 #include <glm/gtx/hash.hpp>
 
-#ifdef VULKAN_RENDERER_FORCE_NULL_CHECK
-#define VKR_FORCE_NULL_CHECK
-#endif
 #include "VulkanRendererMemeoryUtils.hpp"
+
+#define Ptr(A) std::shared_ptr<A>
+#define MakePtr(A, B) std::make_shared<A>(B);
 
 #endif

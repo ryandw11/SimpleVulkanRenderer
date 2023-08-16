@@ -167,6 +167,7 @@
     <ClCompile Include="VulkanGraphicsPipeline.cpp" />
     <ClCompile Include="VulkanRenderer.cpp" />
     <ClCompile Include="VulkanSwapChain.cpp" />
+    <ClCompile Include="VulkanTexture.cpp" />
     <ClCompile Include="VulkanVertexShader.cpp" />
     <ClCompile Include="VulkanVertexShader.hpp" />
   </ItemGroup>
@@ -186,11 +187,13 @@
     <ClInclude Include="VulkanGraphicsPipeline.hpp" />
     <ClInclude Include="VulkanImageUtilities.hpp" />
     <ClInclude Include="VulkanIncludes.hpp" />
+    <ClInclude Include="VulkanPipelineHolderIntf.hpp" />
     <ClInclude Include="VulkanRenderer.hpp" />
     <ClInclude Include="VulkanRendererMemeoryUtils.hpp" />
     <ClInclude Include="VulkanRendererTypes.hpp" />
     <ClInclude Include="VulkanShader.hpp" />
     <ClInclude Include="VulkanSwapChain.hpp" />
+    <ClInclude Include="VulkanTexture.hpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

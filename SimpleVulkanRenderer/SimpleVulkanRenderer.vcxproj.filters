@@ -16,6 +16,7 @@
     <ClCompile Include="VulkanDescriptorSetBuilder.cpp" />
     <ClCompile Include="VulkanBufferUtilities.cpp" />
     <ClCompile Include="VulkanBuffer.cpp" />
+    <ClCompile Include="VulkanTexture.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="3DArray.h">
@@ -78,6 +79,10 @@
     <ClInclude Include="VulkanBuffer.hpp">
       <Filter>Headers</Filter>
     </ClInclude>
+    <ClInclude Include="VulkanTexture.hpp">
+      <Filter>Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="VulkanPipelineHolderIntf.hpp" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="Headers">
