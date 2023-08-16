@@ -35,6 +35,20 @@ public:
 	}
 
 	/// <summary>
+	/// Initalize with the number of frames.
+	/// 
+	/// Internally the resize() function is called. Objects
+	/// can be set by referencing each once.
+	/// </summary>
+	/// <param name="frames">The number of frames.</param>
+	VulkanFrameObject(size_t frames)
+		:
+		mFromSingle(false)
+	{
+		mInternalVector.resize(frames);
+	}
+
+	/// <summary>
 	/// Initalize with an object that remains the same for all frames.
 	/// </summary>
 	/// <param name="object">The object.</param>

@@ -203,11 +203,12 @@ void VulkanRenderer::CreateLogicalDevice()
 /// <param name="swapChainInfo">Configuration of the swap chain.</param>
 void VulkanRenderer::SetupSwapChain(const SwapChainDescriptor descriptor)
 {
-    mSwapChain = std::make_shared<VulkanSwapChain>(descriptor);
-    mSwapChain->InitializeSwapChain(window, surface, physicalDevice, device);
+    mSwapChain = std::make_shared<VulkanSwapChain>(device, descriptor);
+    mSwapChain->InitializeSwapChain(window, surface, physicalDevice);
     CreateRenderPass();
-    mSwapChain->CreateDepthImage(physicalDevice, device);
-    mSwapChain->CreateFrameBuffers(device, renderPass);
+    mSwapChain->CreateDepthImage(physicalDevice);
+    mSwapChain->CreateFrameBuffers(renderPass);
+    mSwapChain->CreateSyncObjects();
 }
 
 /// <summary>
@@ -286,31 +287,4 @@ void VulkanRenderer::CreateGraphicsPipeline(const GraphicsPipelineDescriptor& de
     }
     mGraphicsPipeline = std::make_shared<VulkanGraphicsPipeline>( descriptor);
     mGraphicsPipeline->UpdatePipeline(device, renderPass, mSwapChain->Extent(), mDescriptorHandler->Layout());
-}
-
-/// <summary>
-/// Create the semaphores and fences required to ensure frames
-/// are rendered in the correct order.
-/// </summary>
-void VulkanRenderer::CreateSyncObjects()
-{
-    imageAvailableSemaphores.resize(MAX_FRAMES_IN_FLIGHT);
-    renderFinishedSemaphores.resize(MAX_FRAMES_IN_FLIGHT);
-    inFlightFences.resize(MAX_FRAMES_IN_FLIGHT);
-    imagesInFlight.resize(mSwapChain->Images().size(), VK_NULL_HANDLE);
-
-    VkSemaphoreCreateInfo semaphoreInfo{};
-    semaphoreInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
-
-    VkFenceCreateInfo fenceInfo{};
-    fenceInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
-    fenceInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT;
-
-    for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
-        if (vkCreateSemaphore(device, &semaphoreInfo, nullptr, &imageAvailableSemaphores[i]) != VK_SUCCESS ||
-            vkCreateSemaphore(device, &semaphoreInfo, nullptr, &renderFinishedSemaphores[i]) != VK_SUCCESS ||
-            vkCreateFence(device, &fenceInfo, nullptr, &inFlightFences[i]) != VK_SUCCESS) {
-            throw std::runtime_error("Failed to create synchronization objects for a frame!");
-        }
-    }
 }

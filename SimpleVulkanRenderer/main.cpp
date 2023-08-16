@@ -161,7 +161,6 @@ int main() {
     descriptorSetBuilder->UpdateDescriptorSets();
 
     renderer->CreateDefaultRenderCommandBuffers(vertexBuffer, indexBuffer, static_cast<uint32_t>(ind.size()));
-    renderer->CreateSyncObjects();
 
     // Main Loop::
     renderer->modelMatrix = glm::mat4(1.0f);
@@ -201,7 +200,11 @@ int main() {
             renderer->modelMatrix = glm::translate(renderer->modelMatrix, glm::vec3(0, -1 * deltaTime, 0));
         }
 
-        renderer->drawFrame();
+        auto currentImage = renderer->StartFrameDrawing();
+
+        renderer->updateUniformBuffer(currentImage);
+
+        renderer->EndFrameDrawing(currentImage);
     }
 
     vkDeviceWaitIdle(renderer->device);

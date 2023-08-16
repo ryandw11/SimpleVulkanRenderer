@@ -64,12 +64,15 @@ namespace
     }
 }
 
-VulkanSwapChain::VulkanSwapChain(const SwapChainDescriptor descriptor)
-	: mDescriptor(descriptor)
+VulkanSwapChain::VulkanSwapChain(VkDevice device, const SwapChainDescriptor descriptor)
+	: 
+    mDevice(device),
+    mDescriptor(descriptor),
+    mCurrentFrame(0)
 {
 }
 
-void VulkanSwapChain::InitializeSwapChain(GLFWwindow* window, VkSurfaceKHR surface, VkPhysicalDevice physicalDevice, VkDevice device)
+void VulkanSwapChain::InitializeSwapChain(GLFWwindow* window, VkSurfaceKHR surface, VkPhysicalDevice physicalDevice)
 {
     SwapChainSupportDetails swapChainSupport = QuerySwapChainSupport(physicalDevice, surface);
 
@@ -123,30 +126,30 @@ void VulkanSwapChain::InitializeSwapChain(GLFWwindow* window, VkSurfaceKHR surfa
     createInfo.oldSwapchain = VK_NULL_HANDLE;
 
     // Create it using the device, swap chain info, and the place to store the swap chain.
-    if (vkCreateSwapchainKHR(device, &createInfo, nullptr, &mSwapChain) != VK_SUCCESS)
+    if (vkCreateSwapchainKHR(mDevice, &createInfo, nullptr, &mSwapChain) != VK_SUCCESS)
     {
         throw std::runtime_error("Failed to create valid swap chain!");
     }
 
-    vkGetSwapchainImagesKHR(device, mSwapChain, &imageCount, nullptr);
+    vkGetSwapchainImagesKHR(mDevice, mSwapChain, &imageCount, nullptr);
     mSwapChainImages.resize(imageCount);
-    vkGetSwapchainImagesKHR(device, mSwapChain, &imageCount, mSwapChainImages.data());
+    vkGetSwapchainImagesKHR(mDevice, mSwapChain, &imageCount, mSwapChainImages.data());
 
     mSwapChainImageFormat = surfaceFormat.format;
     mSwapChainExtent = extent;
 
-    CreateImageViews(device);
+    CreateImageViews();
 }
 
-void VulkanSwapChain::CreateDepthImage(VkPhysicalDevice physicalDevice, VkDevice device)
+void VulkanSwapChain::CreateDepthImage(VkPhysicalDevice physicalDevice)
 {
     VkFormat depthFormat = FindDepthFormat(physicalDevice);
-    CreateImage(physicalDevice, device, mSwapChainExtent.width, mSwapChainExtent.height, depthFormat, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+    CreateImage(physicalDevice, mDevice, mSwapChainExtent.width, mSwapChainExtent.height, depthFormat, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
         mDepthImage, mDepthImageMemory);
-    mDepthImageView = CreateImageView(device, mDepthImage, depthFormat, VK_IMAGE_ASPECT_DEPTH_BIT);
+    mDepthImageView = CreateImageView(mDevice, mDepthImage, depthFormat, VK_IMAGE_ASPECT_DEPTH_BIT);
 }
 
-void VulkanSwapChain::CreateFrameBuffers(VkDevice device, VkRenderPass renderPass)
+void VulkanSwapChain::CreateFrameBuffers(VkRenderPass renderPass)
 {
     // Resize the container to hold all of the frame buffers.
     mSwapChainFrameBuffers.resize(mSwapChainImageViews.size());
@@ -167,20 +170,116 @@ void VulkanSwapChain::CreateFrameBuffers(VkDevice device, VkRenderPass renderPas
         framebufferInfo.height = mSwapChainExtent.height;
         framebufferInfo.layers = 1;
 
-        if (vkCreateFramebuffer(device, &framebufferInfo, nullptr, &mSwapChainFrameBuffers[i]) != VK_SUCCESS)
+        if (vkCreateFramebuffer(mDevice, &framebufferInfo, nullptr, &mSwapChainFrameBuffers[i]) != VK_SUCCESS)
         {
             throw std::runtime_error("Failed to create freambuffer!");
         }
     }
 }
 
-void VulkanSwapChain::CreateImageViews(VkDevice device)
+void VulkanSwapChain::CreateSyncObjects()
+{
+    // TODO:: Replace with max frames in flight.
+    mImageAvailableSemaphore = VulkanFrameObject<VkSemaphore>(2);
+    mRenderFinishedSemaphore = VulkanFrameObject<VkSemaphore>(2);
+    mInFlightFence = VulkanFrameObject<VkFence>(2);
+
+    VkSemaphoreCreateInfo semaphoreInfo{};
+    semaphoreInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
+
+    VkFenceCreateInfo fenceInfo{};
+    fenceInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
+    fenceInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT;
+
+    for (size_t i = 0; i < 2; i++)
+    {
+        if (vkCreateSemaphore(mDevice, &semaphoreInfo, nullptr, &mImageAvailableSemaphore[i]) != VK_SUCCESS ||
+            vkCreateSemaphore(mDevice, &semaphoreInfo, nullptr, &mRenderFinishedSemaphore[i]) != VK_SUCCESS ||
+            vkCreateFence(mDevice, &fenceInfo, nullptr, &mInFlightFence[i]) != VK_SUCCESS)
+        {
+            throw std::runtime_error("Failed to create synchronization objects for a frame!");
+        }
+    }
+}
+
+uint32_t VulkanSwapChain::StartFrameDrawing()
+{
+    vkWaitForFences(mDevice, 1, &mInFlightFence[mCurrentFrame], VK_TRUE, UINT64_MAX); // Ensure the frame is available and not being processed by the GPU.
+    uint32_t imageIndex;
+
+    VkResult result = vkAcquireNextImageKHR(mDevice, mSwapChain, UINT64_MAX, mImageAvailableSemaphore[mCurrentFrame], VK_NULL_HANDLE, &imageIndex);
+    if (result == VK_ERROR_OUT_OF_DATE_KHR)
+    {
+        // TODO: Figure out what to do about this.
+    }
+    else if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR)
+    {
+        throw std::runtime_error("Failed to quire swapchain image during frame drawing.");
+    }
+
+    vkResetFences(mDevice, 1, &mInFlightFence[mCurrentFrame]);
+
+    return imageIndex;
+}
+
+void VulkanSwapChain::EndFrameDrawing(VkQueue graphicsQueue, VkCommandBuffer commandBuffer, VkQueue presentationQueue, bool& framebufferResized, uint32_t imageIndex)
+{
+    VkSubmitInfo submitInfo{};
+    submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+
+    VkSemaphore waitSemaphores[] = { mImageAvailableSemaphore[mCurrentFrame] };
+    VkPipelineStageFlags waitStages[] = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
+    submitInfo.waitSemaphoreCount = 1;
+    submitInfo.pWaitSemaphores = waitSemaphores;
+    submitInfo.pWaitDstStageMask = waitStages;
+
+    submitInfo.commandBufferCount = 1;
+    submitInfo.pCommandBuffers = &commandBuffer;
+
+    VkSemaphore signalSemaphores[] = { mRenderFinishedSemaphore[mCurrentFrame] };
+    submitInfo.signalSemaphoreCount = 1;
+    submitInfo.pSignalSemaphores = signalSemaphores;
+
+    if (vkQueueSubmit(graphicsQueue, 1, &submitInfo, mInFlightFence[mCurrentFrame]) != VK_SUCCESS)
+    {
+        throw std::runtime_error("Failed to submit draw command buffer.");
+    }
+
+    VkPresentInfoKHR presentInfo{};
+    presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
+
+    presentInfo.waitSemaphoreCount = 1;
+    presentInfo.pWaitSemaphores = signalSemaphores;
+
+    VkSwapchainKHR swapChains[] = { mSwapChain };
+    presentInfo.swapchainCount = 1;
+    presentInfo.pSwapchains = swapChains;
+
+    presentInfo.pImageIndices = &imageIndex;
+
+    VkResult result = vkQueuePresentKHR(presentationQueue, &presentInfo);
+
+    if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR || framebufferResized) {
+        framebufferResized = false;
+        //recreateSwapChain();
+        // TODO: Create swap chain.
+    }
+    else if (result != VK_SUCCESS)
+    {
+        throw std::runtime_error("Failed to present swap chain image.");
+    }
+
+    // TODO:: Update this "2" to be max frames in flight.
+    mCurrentFrame = (mCurrentFrame + 1) % 2;
+}
+
+void VulkanSwapChain::CreateImageViews()
 {
     // Resize to be the same size as the number of swap chain images.
     mSwapChainImageViews.resize(mSwapChainImages.size());
 
     for (size_t i = 0; i < mSwapChainImages.size(); i++)
     {
-        mSwapChainImageViews[i] = CreateImageView(device, mSwapChainImages[i], mSwapChainImageFormat, VK_IMAGE_ASPECT_COLOR_BIT);
+        mSwapChainImageViews[i] = CreateImageView(mDevice, mSwapChainImages[i], mSwapChainImageFormat, VK_IMAGE_ASPECT_COLOR_BIT);
     }
 }

@@ -5,6 +5,7 @@
 #include <optional>
 
 #include "VulkanIncludes.hpp"
+#include "VulkanFrameObject.hpp"
 
 struct SwapChainDescriptor
 {
@@ -61,18 +62,38 @@ public:
 	}
 
 public:
-	VulkanSwapChain(const SwapChainDescriptor descriptor);
+	VulkanSwapChain(VkDevice device, const SwapChainDescriptor descriptor);
 
-	void InitializeSwapChain(GLFWwindow* window, VkSurfaceKHR surface, VkPhysicalDevice physicalDevice, VkDevice device);
+	void InitializeSwapChain(GLFWwindow* window, VkSurfaceKHR surface, VkPhysicalDevice physicalDevice);
 
-	void CreateDepthImage(VkPhysicalDevice physicalDevice, VkDevice device);
+	void CreateDepthImage(VkPhysicalDevice physicalDevice);
 
-	void CreateFrameBuffers(VkDevice device, VkRenderPass renderPass);
+	void CreateFrameBuffers(VkRenderPass renderPass);
+
+	void CreateSyncObjects();
+
+	/// <summary>
+	/// Start the drawing of a frame, CurrentFrame() should already
+	/// represent the frame you want to start drawing on.
+	/// </summary>
+	/// TODO :: Handle swapchain recreation.
+	uint32_t StartFrameDrawing();
+
+	/// <summary>
+	/// Ends frame drawing and tells the frame
+	/// command buffer to be submited.
+	/// </summary>
+	void EndFrameDrawing(VkQueue graphicsQueue, VkCommandBuffer commandBuffer, VkQueue presentationQueue, bool& framebufferResized, uint32_t imageIndex);
 
 	// TODO
 	//void CleanUp();
 
 	// Getters
+
+	const size_t CurrentFrame()
+	{
+		return mCurrentFrame;
+	}
 
 	const VkSwapchainKHR SwapChain()
 	{
@@ -121,7 +142,7 @@ public:
 
 
 private:
-	void CreateImageViews(VkDevice device);
+	void CreateImageViews();
 
 private:
 	const SwapChainDescriptor mDescriptor;
@@ -135,9 +156,21 @@ private:
 
 	std::vector<VkFramebuffer> mSwapChainFrameBuffers;
 
+	VulkanFrameObject<VkSemaphore> mImageAvailableSemaphore;
+	VulkanFrameObject<VkSemaphore> mRenderFinishedSemaphore;
+	VulkanFrameObject<VkFence> mInFlightFence;
+
 	VkImage mDepthImage;
 	VkImageView mDepthImageView;
 	VkDeviceMemory mDepthImageMemory;
+
+	// Current State:
+	size_t mCurrentFrame;
+	uint32_t mCurrentImageIndex;
+
+
+	// General Pipline Info Storage
+	VkDevice mDevice;
 };
 
 #endif

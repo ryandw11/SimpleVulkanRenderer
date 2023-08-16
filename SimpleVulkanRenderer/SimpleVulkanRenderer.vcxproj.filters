@@ -82,7 +82,9 @@
     <ClInclude Include="VulkanTexture.hpp">
       <Filter>Headers</Filter>
     </ClInclude>
-    <ClInclude Include="VulkanPipelineHolderIntf.hpp" />
+    <ClInclude Include="VulkanPipelineHolderIntf.hpp">
+      <Filter>Headers</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="Headers">

@@ -1,12 +1,9 @@
 #pragma once
 
-#ifndef VULKAN_RENDERER
-#define VULKAN_RENDERER
+#ifndef VULKAN_RENDERER_H
+#define VULKAN_RENDERER_H
 
 #include "VulkanIncludes.hpp"
-
-//#define STB_IMAGE_IMPLEMENTATION
-//#include <stb_image.h>
 
 //#define TINYOBJLOADER_IMPLEMENTATION
 //#include <tiny_obj_loader.h>
@@ -66,75 +63,6 @@ struct SwapChainSupportDetails {
     std::vector<VkPresentModeKHR> presentModes;
 };
 
-/*struct Vertex {
-    glm::vec3 pos;
-    glm::vec3 color;
-    glm::vec2 texCoord;
-
-    // Setup the binding descriptions.
-    static VkVertexInputBindingDescription getBindingDescription() {
-        VkVertexInputBindingDescription bindingDescription{};
-        bindingDescription.binding = 0;
-        bindingDescription.stride = sizeof(Vertex);
-        bindingDescription.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
-
-        return bindingDescription;
-    }
-
-    //Setup Attribute Descriptions.
-    static std::array<VkVertexInputAttributeDescription, 3> getAttributeDescriptions() {
-        std::array<VkVertexInputAttributeDescription, 3> attributeDescriptions{};
-        // Vertex Attribute Desciption
-        // Which binding the per-vertex data comes.
-        attributeDescriptions[0].binding = 0;
-        // The location directive of the input in the vertex shader.
-        attributeDescriptions[0].location = 0;
-        // Describes the type of data for the attribute. These use color formats. See the list here: https://vulkan-tutorial.com/Vertex_buffers/Vertex_input_description
-        attributeDescriptions[0].format = VK_FORMAT_R32G32B32_SFLOAT;
-        // The number of bytes since the start of the per-vertex data to read from.
-        // That is automatically calculated using the offsetof macro.
-        attributeDescriptions[0].offset = offsetof(Vertex, pos);
-
-        // Color Attribute Description.
-        attributeDescriptions[1].binding = 0;
-        attributeDescriptions[1].location = 1;
-        attributeDescriptions[1].format = VK_FORMAT_R32G32B32_SFLOAT;
-        attributeDescriptions[1].offset = offsetof(Vertex, color);
-
-        // Texture Coord Attribute Description.
-        attributeDescriptions[2].binding = 0;
-        attributeDescriptions[2].location = 2;
-        attributeDescriptions[2].format = VK_FORMAT_R32G32_SFLOAT;
-        attributeDescriptions[2].offset = offsetof(Vertex, texCoord);
-
-        return attributeDescriptions;
-    }
-
-    bool operator==(const Vertex& other) const {
-        return pos == other.pos && color == other.color && texCoord == other.texCoord;
-    }
-};*/
-
-
-
-// The actual verticies.
-/*const std::vector<Vertex> vertices = {
-    {{-0.5f, -0.5f, 0.0f}, {1.0f, 0.0f, 0.0f}, {0.0f, 0.0f}},
-    {{0.5f, -0.5f, 0.0f}, {0.0f, 1.0f, 0.0f}, {1.0f, 0.0f}},
-    {{0.5f, 0.5f, 0.0f}, {0.0f, 0.0f, 1.0f}, {1.0f, 1.0f}},
-    {{-0.5f, 0.5f, 0.0f}, {1.0f, 1.0f, 1.0f}, {0.0f, 1.0f}},
-
-    {{-0.5f, -0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}, {0.0f, 0.0f}},
-    {{0.5f, -0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}, {1.0f, 0.0f}},
-    {{0.5f, 0.5f, -0.5f}, {0.0f, 0.0f, 1.0f}, {1.0f, 1.0f}},
-    {{-0.5f, 0.5f, -0.5f}, {1.0f, 1.0f, 1.0f}, {0.0f, 1.0f}}
-};
-
-const std::vector<uint16_t> indices = {
-    0, 1, 2, 2, 3, 0,
-    4, 5, 6, 6, 7, 4
-};*/
-
 // The struct for uniforms.
 struct UniformBufferObject {
     // Explicitly align the data for uniforms
@@ -156,12 +84,12 @@ public:
         return device;
     }
 
-    virtual operator VkQueue () override
+    operator VkQueue () override
     {
         return graphicsQueue;
     }
 
-    virtual operator VkCommandPool () override
+    operator VkCommandPool () override
     {
         return mCommandPools[0]->CommandPool();
     }
@@ -242,7 +170,7 @@ public:
 
     void CreateVulkanInstance(VulkanInstanceInfo instanceInfo);
 
-    void drawFrame() {
+    /*void drawFrame() {
         // Wait for the current frame fence to finish before making the frame.
         vkWaitForFences(device, 1, &inFlightFences[currentFrame], VK_TRUE, UINT64_MAX);
 
@@ -304,6 +232,20 @@ public:
 
         // Increase the current frame by 1 and loop back around when needed.
         currentFrame = (currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
+    }*/
+
+    /// <summary>
+    /// Forward the start drawing command to the SwapChain.
+    /// </summary>
+    /// <returns>The image being drawn to.</returns>
+    uint32_t StartFrameDrawing()
+    {
+        return mSwapChain->StartFrameDrawing();
+    }
+
+    void EndFrameDrawing(uint32_t currentImage)
+    {
+        mSwapChain->EndFrameDrawing(graphicsQueue, *(mCommandPools[0]->CommandBuffers()[mSwapChain->CurrentFrame()]), presentQueue, framebufferResized, currentImage);
     }
 
     /**
@@ -453,7 +395,7 @@ public:
 
     // Recreate the swap chain when needed (like on window resize).
     void recreateSwapChain() {
-        int width = 0, height = 0;
+        /*int width = 0, height = 0;
         glfwGetFramebufferSize(window, &width, &height);
         // This code handles minimization. Wait until the program is unminimized.
         while (width == 0 || height == 0) {
@@ -472,10 +414,11 @@ public:
         mSwapChain->CreateFrameBuffers(device, renderPass);
         CreateUniformBuffers();
         CreateDefaultRenderCommandBuffers(nullptr, nullptr, 0); // TODO:: Fix
+        */
     }
 
     // Create objects needed for syncronization.
-    void CreateSyncObjects();
+    //void CreateSyncObjects();
 
     void CreateDefaultRenderCommandBuffers(VkBuffer vertexBuffer, VkBuffer indexBuffer, uint32_t indices) {
         for (size_t i = 0; i < mSwapChain->FrameBuffers().size(); i++) {

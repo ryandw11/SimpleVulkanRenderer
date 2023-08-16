@@ -53,6 +53,11 @@ public:
 	// Freeing
 	// ---------------------------------------------------
 	void FreeCommandBuffer(VkDevice device);
+
+	operator VkCommandBuffer()
+	{
+		return mCommandBuffer;
+	}
 private:
 	std::thread::id mParentPoolThread;
 
