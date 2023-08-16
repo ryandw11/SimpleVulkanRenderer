@@ -297,9 +297,6 @@ public:
             commandPool->FreeCommandBuffers(device);
         }
 
-        mGraphicsPipeline->CleanupPipeline(device);
-        vkDestroyRenderPass(device, renderPass, nullptr);
-
         // Destroy the image views.
         for (auto imageView : mSwapChain->ImageViews()) {
             vkDestroyImageView(device, imageView, nullptr);
@@ -319,6 +316,9 @@ public:
     void cleanup() {
 
         cleanupSwapChain();
+
+        mGraphicsPipeline->CleanupPipeline(device);
+        vkDestroyRenderPass(device, renderPass, nullptr);
 
         vkDestroyDescriptorSetLayout(device, mDescriptorHandler->Layout(), nullptr);
 
@@ -408,8 +408,6 @@ public:
 
         cleanupSwapChain();
         mSwapChain->InitializeSwapChain(window, surface, physicalDevice, device);
-        CreateRenderPass();
-        mGraphicsPipeline->UpdatePipeline(device, renderPass, mSwapChain->Extent(), mDescriptorHandler->Layout());
         mSwapChain->CreateDepthImage(physicalDevice, device);
         mSwapChain->CreateFrameBuffers(device, renderPass);
         CreateUniformBuffers();
@@ -426,6 +424,7 @@ public:
             commandBuffer->StartCommandRecording();
             commandBuffer->StartRenderPass(renderPass, mSwapChain->FrameBuffers()[i], mSwapChain->Extent(), {164/255.0, 236/255.0, 252/255.0, 1.0});
             commandBuffer->BindPipeline(mGraphicsPipeline->Pipeline());
+            commandBuffer->SetViewportScissor(mSwapChain->Extent());
             commandBuffer->BindVertexBuffer(vertexBuffer);
             commandBuffer->BindIndexBuffer(indexBuffer);
             commandBuffer->BindDescriptorSet(mGraphicsPipeline->PipelineLayout(), mDescriptorHandler->DescriptorSetBuilder()->GetBuiltDescriptorSets()[i]);

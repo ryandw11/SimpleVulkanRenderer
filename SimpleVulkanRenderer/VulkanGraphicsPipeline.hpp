@@ -29,7 +29,7 @@ class VulkanGraphicsPipeline
 public:
 	VulkanGraphicsPipeline(const GraphicsPipelineDescriptor descriptor);
 
-	void UpdatePipeline(VkDevice device, VkRenderPass renderPass, VkExtent2D swapChainExtent, VkDescriptorSetLayout descriptorSetLayout);
+	void UpdatePipeline(VkDevice device, VkRenderPass renderPass, VkDescriptorSetLayout descriptorSetLayout);
 	void CleanupPipeline(VkDevice device);
 
 	VkPipeline Pipeline() const;

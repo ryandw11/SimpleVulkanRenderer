@@ -92,6 +92,32 @@ void VulkanCommandBuffer::DrawIndexed(uint32_t indexSize, uint32_t instanceCount
 	vkCmdDrawIndexed(mCommandBuffer, indexSize, instanceCount, firstIndex, vertexOffset, firstInstace);
 }
 
+void VulkanCommandBuffer::SetViewport(float x, float y, float width, float height, float minDepth, float maxDepth)
+{
+	VkViewport viewport{};
+	viewport.x = x;
+	viewport.y = y;
+	viewport.width = width;
+	viewport.height = height;
+	viewport.minDepth = minDepth;
+	viewport.maxDepth = maxDepth;
+	vkCmdSetViewport(mCommandBuffer, 0, 1, &viewport);
+}
+
+void VulkanCommandBuffer::SetScissor(VkOffset2D offset, VkExtent2D extent)
+{
+	VkRect2D scissor{};
+	scissor.offset = offset;
+	scissor.extent = extent;
+	vkCmdSetScissor(mCommandBuffer, 0, 1, &scissor);
+}
+
+void VulkanCommandBuffer::SetViewportScissor(VkExtent2D swapChainExtent)
+{
+	SetViewport(0, 0, static_cast<float>(swapChainExtent.width), static_cast<float>(swapChainExtent.height), 0, 1);
+	SetScissor({ 0, 0 }, swapChainExtent);
+}
+
 void VulkanCommandBuffer::CopyBuffer(VkBuffer sourceBuffer, VkBuffer destinationBuffer, VkBufferCopy copyRegion)
 {
 	vkCmdCopyBuffer(mCommandBuffer, sourceBuffer, destinationBuffer, 1, &copyRegion);

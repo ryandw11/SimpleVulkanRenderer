@@ -1,6 +1,7 @@
 #include "VulkanGraphicsPipeline.hpp"
 
 #include <stdexcept>
+#include <vector>
 
 VulkanGraphicsPipeline::VulkanGraphicsPipeline(const GraphicsPipelineDescriptor descriptor)
     :
@@ -20,7 +21,7 @@ VulkanGraphicsPipeline::VulkanGraphicsPipeline(const GraphicsPipelineDescriptor 
 }
 
 // TODO:: A bug needs to be fix where shaders will be killd when the window resizes.
-void VulkanGraphicsPipeline::UpdatePipeline(VkDevice device, VkRenderPass renderPass, VkExtent2D swapChainExtent, VkDescriptorSetLayout descriptorSetLayout)
+void VulkanGraphicsPipeline::UpdatePipeline(VkDevice device, VkRenderPass renderPass, VkDescriptorSetLayout descriptorSetLayout)
 {
     std::vector<VkPipelineShaderStageCreateInfo> shaderStages = { mVertexShader->GetShaderStage(), mFragmentShader->GetShaderStage() };
 
@@ -35,28 +36,12 @@ void VulkanGraphicsPipeline::UpdatePipeline(VkDevice device, VkRenderPass render
     inputAssembly.topology = mDescriptor.InputTopology;
     inputAssembly.primitiveRestartEnable = VK_FALSE;
 
-    // Define the viewport of the rendering.
-    VkViewport viewport{};
-    viewport.x = 0.0f;
-    viewport.y = 0.0f;
-    viewport.width = (float)swapChainExtent.width;
-    viewport.height = (float)swapChainExtent.height;
-    viewport.minDepth = 0.0f;
-    viewport.maxDepth = 1.0f;
-
-    // Define a scissor to use. (We don't want to cut anything so we just have it cover everything).
-    VkRect2D scissor{};
-    scissor.offset = { 0, 0 };
-    scissor.extent = swapChainExtent;
-
     // Define the pipeline's viewport. Some GPUs allows multiple viewports and sciessor rectangles.
     // That requires a GPU feature to be enabled in the logical device creation.
     VkPipelineViewportStateCreateInfo viewportState{};
     viewportState.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
     viewportState.viewportCount = 1;
-    viewportState.pViewports = &viewport;
-    viewportState.scissorCount = 1;
-    viewportState.pScissors = &scissor;
+    viewportState.scissorCount = 1; // TODO :: Verify this
 
     // Setup the rasterizer, which takes the vertices from the vertex shader and
     // turns them into fragments to be colored by the fragment shader. Depth Testing and Face culling are done here.
@@ -140,6 +125,12 @@ void VulkanGraphicsPipeline::UpdatePipeline(VkDevice device, VkRenderPass render
         throw std::runtime_error("Failed to create pipeline layout!");
     }
 
+    std::vector<VkDynamicState> dynamicStates = {VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR};
+    VkPipelineDynamicStateCreateInfo dynamicState{};
+    dynamicState.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
+    dynamicState.dynamicStateCount = static_cast<uint32_t>(dynamicStates.size());
+    dynamicState.pDynamicStates = dynamicStates.data();
+
     auto vertexInputStateInfo = mVertexShader->GetVertexInputStateInfo();
 
     VkGraphicsPipelineCreateInfo pipelineInfo{};
@@ -154,7 +145,7 @@ void VulkanGraphicsPipeline::UpdatePipeline(VkDevice device, VkRenderPass render
     pipelineInfo.pMultisampleState = &multisampling;
     pipelineInfo.pDepthStencilState = &depthStencil;
     pipelineInfo.pColorBlendState = &colorBlending;
-    pipelineInfo.pDynamicState = nullptr;
+    pipelineInfo.pDynamicState = &dynamicState;
     // Pipeline Layout
     pipelineInfo.layout = mPipelineLayout;
     // Render pass

@@ -30,6 +30,12 @@ public:
 	// ---------------------------------------------------
 	void DrawIndexed(uint32_t indexSize, uint32_t instanceCount = 1, uint32_t firstIndex = 0, uint32_t vertexOffset = 0, uint32_t firstInstace = 0);
 	// ---------------------------------------------------
+	// State Setting
+	// ---------------------------------------------------
+	void SetViewport(float x, float y, float width, float height, float minDepth, float maxDepth);
+	void SetScissor(VkOffset2D offset, VkExtent2D extent);
+	void SetViewportScissor(VkExtent2D swapChainExtent);
+	// ---------------------------------------------------
 	// Memory Copying
 	// ---------------------------------------------------
 	void CopyBuffer(VkBuffer sourceBuffer, VkBuffer destinationBuffer, VkBufferCopy copyRegion);
