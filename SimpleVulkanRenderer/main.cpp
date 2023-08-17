@@ -258,7 +258,7 @@ int main() {
     descriptorSetBuilder->DescribeImageSample(1, 0, texture.ImageView(), texture.Sampler());
     descriptorSetBuilder->UpdateDescriptorSets();
 
-    renderer->CreateDefaultRenderCommandBuffers(vertexBuffer, indexBuffer, static_cast<uint32_t>(cubeIndices.size()));
+    renderer->CreateDefaultRenderCommandBuffers();
 
     // Main Loop::
     modelMatrix = glm::mat4(1.0f);
@@ -298,9 +298,27 @@ int main() {
             modelMatrix = glm::translate(modelMatrix, glm::vec3(0, -1 * deltaTime, 0));
         }
 
+        modelMatrix = glm::rotate(modelMatrix, deltaTime * glm::radians(90.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+        modelMatrix = glm::rotate(modelMatrix, deltaTime * glm::radians(90.0f), glm::vec3(1.0f, 0.0f, 0.0f));
+
         auto currentImage = renderer->StartFrameDrawing();
 
         UpdateUniformBuffer(currentImage);
+
+        // Record Commands
+        auto frameCommandBuffer = renderer->GetFrameCommandBuffer();
+        frameCommandBuffer->Reset();
+        frameCommandBuffer->StartCommandRecording();
+        frameCommandBuffer->StartRenderPass(renderer->RenderPass(), renderer->SwapChain()->FrameBuffers()[currentImage], renderer->SwapChain()->Extent(), {164 / 255.0, 236 / 255.0, 252 / 255.0, 1.0});
+        frameCommandBuffer->BindPipeline(renderer->PrimaryGraphicsPipeline()->Pipeline());
+        frameCommandBuffer->SetViewportScissor(renderer->SwapChain()->Extent());
+        frameCommandBuffer->BindVertexBuffer(vertexBuffer);
+        frameCommandBuffer->BindIndexBuffer(indexBuffer);
+        frameCommandBuffer->BindDescriptorSet(renderer->PrimaryGraphicsPipeline()->PipelineLayout(), renderer->DescriptorHandler()->DescriptorSetBuilder()->GetBuiltDescriptorSets()[currentImage]);
+        frameCommandBuffer->DrawIndexed(cubeIndices.size());
+        frameCommandBuffer->EndRenderPass();
+        frameCommandBuffer->EndCommandRecording();
+
 
         renderer->EndFrameDrawing(currentImage);
     }

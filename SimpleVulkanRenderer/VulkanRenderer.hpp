@@ -115,30 +115,22 @@ public:
     std::shared_ptr<VulkanDescriptorLayout> mDescriptorHandler;
     std::shared_ptr<VulkanBufferUtilities> mBufferUtilities;
 
-
-    // Load the vkCreateDebugUtilsMessengerEXT method since it is an extension.
-    VkResult CreateDebugUtilsMessengerEXT(VkInstance instance, const VkDebugUtilsMessengerCreateInfoEXT* pCreateInfo, const VkAllocationCallbacks* pAllocator, VkDebugUtilsMessengerEXT* pDebugMessenger) {
-        auto func = (PFN_vkCreateDebugUtilsMessengerEXT)vkGetInstanceProcAddr(instance, "vkCreateDebugUtilsMessengerEXT");
-        if (func != nullptr) {
-            return func(instance, pCreateInfo, pAllocator, pDebugMessenger);
-        }
-        else {
-            return VK_ERROR_EXTENSION_NOT_PRESENT;
-        }
-    }
-
-    // Load the vkDestroyDebugUtilsMessengerEXT method since it is an extension.
-    void DestroyDebugUtilsMessengerEXT(VkInstance instance, VkDebugUtilsMessengerEXT debugMessenger, const VkAllocationCallbacks* pAllocator) {
-        auto func = (PFN_vkDestroyDebugUtilsMessengerEXT)vkGetInstanceProcAddr(instance, "vkDestroyDebugUtilsMessengerEXT");
-        if (func != nullptr) {
-            func(instance, debugMessenger, pAllocator);
-        }
-    }
-
 public:
+    // ----------------------------------------------------
+    // Initalizers
+    // ----------------------------------------------------
     void CreateGLFWWindow(int width, int height, std::string name);
-
     void CreateVulkanInstance(VulkanInstanceInfo instanceInfo);
+    void CreateGLFWSurface();
+    void SelectPhysicalDevice();
+    void CreateLogicalDevice();
+    void SetupSwapChain(const SwapChainDescriptor descriptor);
+    void CreateRenderPass();
+    void CreateGraphicsPipeline(const GraphicsPipelineDescriptor& descriptor);
+    void CreateDefaultCommandPool(std::string identifier) {
+        mDefaultCommandPool = std::make_shared<VulkanCommandPool>(surface, physicalDevice, device, identifier);
+    }
+    void SetupDebugMessenger();
 
     /// <summary>
     /// Forward the start drawing command to the SwapChain.
@@ -156,7 +148,27 @@ public:
 
     Ptr(VulkanCommandBuffer) GetFrameCommandBuffer()
     {
+        return mDefaultCommandPool->CommandBuffers()[mSwapChain->CurrentFrame()];
+    }
 
+    Ptr(VulkanGraphicsPipeline) PrimaryGraphicsPipeline()
+    {
+        return mGraphicsPipeline;
+    }
+
+    Ptr(VulkanDescriptorLayout) DescriptorHandler()
+    {
+        return mDescriptorHandler;
+    }
+
+    VkRenderPass RenderPass()
+    {
+        return renderPass;
+    }
+
+    Ptr(VulkanSwapChain) SwapChain()
+    {
+        return mSwapChain;
     }
 
     // Cleanup the swap chain.
@@ -269,180 +281,31 @@ public:
     // Create objects needed for syncronization.
     //void CreateSyncObjects();
 
-    void CreateDefaultRenderCommandBuffers(VkBuffer vertexBuffer, VkBuffer indexBuffer, uint32_t indices) {
+    void CreateDefaultRenderCommandBuffers() {
         for (size_t i = 0; i < mSwapChain->FrameBuffers().size(); i++) {
             auto commandBuffer = mDefaultCommandPool->CreateCommandBuffer(device);
-            commandBuffer->StartCommandRecording();
-            commandBuffer->StartRenderPass(renderPass, mSwapChain->FrameBuffers()[i], mSwapChain->Extent(), {164/255.0, 236/255.0, 252/255.0, 1.0});
-            commandBuffer->BindPipeline(mGraphicsPipeline->Pipeline());
-            commandBuffer->SetViewportScissor(mSwapChain->Extent());
-            commandBuffer->BindVertexBuffer(vertexBuffer);
-            commandBuffer->BindIndexBuffer(indexBuffer);
-            commandBuffer->BindDescriptorSet(mGraphicsPipeline->PipelineLayout(), mDescriptorHandler->DescriptorSetBuilder()->GetBuiltDescriptorSets()[i]);
-            //vkCmdBindDescriptorSets(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, mGraphicsPipeline->PipelineLayout(), 0, 1, &descriptorSets[i], 0, nullptr);
-            commandBuffer->DrawIndexed(indices);
-            commandBuffer->EndRenderPass();
-            commandBuffer->EndCommandRecording();
         }
     }
 
-    // Create the command buffers.
-    // TODO:: Make command system customizable.
-    void CreateDefaultCommandPool(std::string identifier) {
-        mDefaultCommandPool = std::make_shared<VulkanCommandPool>(surface, physicalDevice, device, identifier);
-    }
-
-    void CreateRenderPass();
-    void CreateGraphicsPipeline(const GraphicsPipelineDescriptor& descriptor);
-
-    void SetupSwapChain(const SwapChainDescriptor descriptor);
-
-    void CreateGLFWSurface();
-
-    void CreateLogicalDevice();
-
-    // Pick a graphics card to use.
-    void SelectPhysicalDevice();
-
-    // This checks to make sure that the Device can handle all of the
-    // features that we use.
-    bool isDeviceSuitable(VkPhysicalDevice device) {
-        QueueFamilyIndices indicies = findQueueFamilies(device);
-
-        bool extensionSupported = checkDeviceExtensionSupport(device);
-
-        // Check is swap chain is adequate.
-        bool swapChainAdequate = false;
-        if (extensionSupported) {
-            VulkanSwapChain::SwapChainSupportDetails swapChainSupport = VulkanSwapChain::QuerySwapChainSupport(device, surface);
-            swapChainAdequate = !swapChainSupport.formats.empty() && !swapChainSupport.presentModes.empty();
-        }
-
-        // Get PhysicalDevice features.
-        VkPhysicalDeviceFeatures supportedFeatures{};
-        vkGetPhysicalDeviceFeatures(device, &supportedFeatures);
-
-        return indicies.isComplete() && extensionSupported && swapChainAdequate && supportedFeatures.samplerAnisotropy;
-    }
-
-
-    // Check if extensions are suppored for a sepecific physical device.
-    bool checkDeviceExtensionSupport(VkPhysicalDevice device) {
-        uint32_t extensionCount;
-        vkEnumerateDeviceExtensionProperties(device, nullptr, &extensionCount, nullptr);
-
-        std::vector<VkExtensionProperties> availableExtensions(extensionCount);
-        vkEnumerateDeviceExtensionProperties(device, nullptr, &extensionCount, availableExtensions.data());
-
-        std::set<std::string> requiredExtensions(deviceExtensions.begin(), deviceExtensions.end());
-
-        // Remove required extension if it exists.
-        for (const auto& extension : availableExtensions) {
-            requiredExtensions.erase(extension.extensionName);
-        }
-
-        // Extensions are supported if the list is empty.
-        return requiredExtensions.empty();
-    }
-
-    QueueFamilyIndices findQueueFamilies(VkPhysicalDevice device) {
-        QueueFamilyIndices indices;
-
-        uint32_t queueFamilyCount = 0;
-        vkGetPhysicalDeviceQueueFamilyProperties(device, &queueFamilyCount, nullptr);
-
-        std::vector<VkQueueFamilyProperties> queueFamilies(queueFamilyCount);
-        vkGetPhysicalDeviceQueueFamilyProperties(device, &queueFamilyCount, queueFamilies.data());
-
-        // Find a queue family that supports QUEUE GRAPHICS BIT.
-
-        int i = 0;
-        for (const auto& queueFamily : queueFamilies) {
-            if (queueFamily.queueFlags & VK_QUEUE_GRAPHICS_BIT) {
-                indices.graphicsFamily = i;
+    private:
+        // Load the vkCreateDebugUtilsMessengerEXT method since it is an extension.
+        VkResult CreateDebugUtilsMessengerEXT(VkInstance instance, const VkDebugUtilsMessengerCreateInfoEXT* pCreateInfo, const VkAllocationCallbacks* pAllocator, VkDebugUtilsMessengerEXT* pDebugMessenger) {
+            auto func = (PFN_vkCreateDebugUtilsMessengerEXT)vkGetInstanceProcAddr(instance, "vkCreateDebugUtilsMessengerEXT");
+            if (func != nullptr) {
+                return func(instance, pCreateInfo, pAllocator, pDebugMessenger);
             }
-
-            // Find one that supports presentation. (Can be different than the graphics queue)
-            VkBool32 presentSupport = false;
-            vkGetPhysicalDeviceSurfaceSupportKHR(device, i, surface, &presentSupport);
-
-            if (presentSupport) {
-                indices.presentFamily = i;
+            else {
+                return VK_ERROR_EXTENSION_NOT_PRESENT;
             }
+        }
 
-            // Check if the int is populated.
-            if (indices.isComplete()) {
-                break;
+        // Load the vkDestroyDebugUtilsMessengerEXT method since it is an extension.
+        void DestroyDebugUtilsMessengerEXT(VkInstance instance, VkDebugUtilsMessengerEXT debugMessenger, const VkAllocationCallbacks* pAllocator) {
+            auto func = (PFN_vkDestroyDebugUtilsMessengerEXT)vkGetInstanceProcAddr(instance, "vkDestroyDebugUtilsMessengerEXT");
+            if (func != nullptr) {
+                func(instance, debugMessenger, pAllocator);
             }
-
-            i++;
         }
-
-        return indices;
-    }
-
-    void populateDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT& createInfo) {
-        createInfo = {};
-        createInfo.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
-        createInfo.messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
-        createInfo.messageType = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
-        createInfo.pfnUserCallback = debugCallback;
-    }
-
-    void SetupDebugMessenger();
-
-    // Get the list of required extensions.
-    std::vector<const char*> getRequiredExtensions() {
-        uint32_t glfwExtensionCount = 0;
-        const char** glfwExtensions;
-        glfwExtensions = glfwGetRequiredInstanceExtensions(&glfwExtensionCount);
-
-        std::vector<const char*> extensions(glfwExtensions, glfwExtensions + glfwExtensionCount);
-
-        if (enableValidationLayers) {
-            extensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
-        }
-
-        return extensions;
-    }
-
-    static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
-        VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
-        VkDebugUtilsMessageTypeFlagsEXT messageType,
-        const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData,
-        void* pUserData
-    ) {
-        std::cerr << "Validation layer: " << pCallbackData->pMessage << std::endl;
-
-        return VK_FALSE;
-    }
-
-    // Read all of the bytes in a file.
-    static std::vector<char> readFile(const std::string& filename) {
-        // Open the file starting at the end.
-        std::ifstream file(filename, std::ios::ate | std::ios::binary);
-
-        if (!file.is_open()) {
-            throw std::runtime_error("Failed to open file!");
-        }
-
-        // Get the file size by getting the position.
-        size_t fileSize = (size_t)file.tellg();
-        std::vector<char> buffer(fileSize);
-
-        // Go to beginning and read all of the data.
-        file.seekg(0);
-        file.read(buffer.data(), fileSize);
-        file.close();
-
-        return buffer;
-    }
-
-    // A GLFW callback for when the window is resized.
-    static void framebufferResizeCallback(GLFWwindow* window, int width, int height) {
-        auto app = reinterpret_cast<VulkanRenderer*>(glfwGetWindowUserPointer(window));
-        app->framebufferResized = true;
-    }
 };
 
 
