@@ -63,14 +63,7 @@ struct SwapChainSupportDetails {
     std::vector<VkPresentModeKHR> presentModes;
 };
 
-// The struct for uniforms.
-struct UniformBufferObject {
-    // Explicitly align the data for uniforms
-    // mat4 must align on 16 bytes.
-    alignas(16) glm::mat4 model;
-    alignas(16) glm::mat4 view;
-    alignas(16) glm::mat4 proj;
-};
+
 
 class VulkanRenderer : public VulkanPipelineHolderIntf {
 public:
@@ -91,7 +84,7 @@ public:
 
     operator VkCommandPool () override
     {
-        return mCommandPools[0]->CommandPool();
+        return mDefaultCommandPool->CommandPool();
     }
 public:
     GLFWwindow* window;
@@ -106,28 +99,12 @@ public:
     VkQueue presentQueue;
 
     VkRenderPass renderPass;
-    // The layout for shader descriptors.
-    //VkDescriptorSetLayout descriptorSetLayout;
 
     // Manages allocation of Command Buffers.
-    std::vector<std::shared_ptr<VulkanCommandPool>> mCommandPools;
-
-    // The vector of semaphroes for image availability (This is for syncronization).
-    std::vector<VkSemaphore> imageAvailableSemaphores;
-    std::vector<VkSemaphore> renderFinishedSemaphores;
-
-    // To keep track of CPU -> GPU syncronization.
-    std::vector<VkFence> inFlightFences;
-    std::vector<VkFence> imagesInFlight;
-
-    size_t currentFrame = 0;
+    std::shared_ptr<VulkanCommandPool> mDefaultCommandPool;
 
     // A flag that triggers when the window is resized.
     bool framebufferResized = false;
-
-    // Buffers for uniforms. (One for each swap chain image since multiple can be in flight).
-    std::vector<VkBuffer> uniformBuffers;
-    std::vector<VkDeviceMemory> uniformBuffersMemory;
 
 
     /*
@@ -137,13 +114,6 @@ public:
     std::shared_ptr<VulkanSwapChain> mSwapChain;
     std::shared_ptr<VulkanDescriptorLayout> mDescriptorHandler;
     std::shared_ptr<VulkanBufferUtilities> mBufferUtilities;
-
-    /*
-
-        Transformation Matrix
-
-    */
-    glm::mat4 modelMatrix;
 
 
     // Load the vkCreateDebugUtilsMessengerEXT method since it is an extension.
@@ -170,70 +140,6 @@ public:
 
     void CreateVulkanInstance(VulkanInstanceInfo instanceInfo);
 
-    /*void drawFrame() {
-        // Wait for the current frame fence to finish before making the frame.
-        vkWaitForFences(device, 1, &inFlightFences[currentFrame], VK_TRUE, UINT64_MAX);
-
-        uint32_t imageIndex;
-        // Aquire an image from the swap chain.
-        // UINT64_MAX defines the timeout (in nanoseconds) for an image to become available. This disables that feature.
-        // The fourth parameter is for a syncronization object.
-        VkResult result = vkAcquireNextImageKHR(device, mSwapChain->SwapChain(), UINT64_MAX, imageAvailableSemaphores[currentFrame], VK_NULL_HANDLE, &imageIndex);
-        // If the Swap Chain is out of date and needs to be recreated.
-        if (result == VK_ERROR_OUT_OF_DATE_KHR) {
-            recreateSwapChain();
-            return;
-        }
-        else if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR) {
-            throw std::runtime_error("Failed to acquire swap chain images!");
-        }
-
-        // Update the uniform buffer for the image.
-        updateUniformBuffer(imageIndex);
-
-        // Check if the previous frame is using this image.
-        if (imagesInFlight[imageIndex] != VK_NULL_HANDLE) {
-            vkWaitForFences(device, 1, &imagesInFlight[imageIndex], VK_TRUE, UINT64_MAX);
-        }
-        // Mark that the image is currently being used by this frame.
-        imagesInFlight[imageIndex] = inFlightFences[currentFrame];
-
-        VkSemaphore waitSemaphores[] = { imageAvailableSemaphores[currentFrame] };
-        VkSemaphore signalSemaphores[] = { renderFinishedSemaphores[currentFrame] };
-
-        // The fence needs to be reset after being waited for.
-        vkResetFences(device, 1, &inFlightFences[currentFrame]);
-
-        auto currentCommandBuffer = mCommandPools[0]->CommandBuffers()[currentFrame];
-        // Submit to the queue. Signal the fence when this is done.
-        currentCommandBuffer->Submit(graphicsQueue, imageAvailableSemaphores[currentFrame], renderFinishedSemaphores[currentFrame], inFlightFences[currentFrame]);
-
-        VkPresentInfoKHR presentInfo{};
-        presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
-        presentInfo.waitSemaphoreCount = 1;
-        presentInfo.pWaitSemaphores = signalSemaphores;
-
-        VkSwapchainKHR swapChains[] = { mSwapChain->SwapChain() };
-        presentInfo.swapchainCount = 1;
-        presentInfo.pSwapchains = swapChains;
-        presentInfo.pImageIndices = &imageIndex;
-        presentInfo.pResults = nullptr;
-
-        result = vkQueuePresentKHR(presentQueue, &presentInfo);
-
-        // If the swap chain is out of date or suboptimal, then recreate the swap chain.
-        if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR || framebufferResized) {
-            framebufferResized = false;
-            recreateSwapChain();
-        }
-        else if (result != VK_SUCCESS) {
-            throw std::runtime_error("Failed to present swap chain image!");
-        }
-
-        // Increase the current frame by 1 and loop back around when needed.
-        currentFrame = (currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
-    }*/
-
     /// <summary>
     /// Forward the start drawing command to the SwapChain.
     /// </summary>
@@ -245,39 +151,11 @@ public:
 
     void EndFrameDrawing(uint32_t currentImage)
     {
-        mSwapChain->EndFrameDrawing(graphicsQueue, *(mCommandPools[0]->CommandBuffers()[mSwapChain->CurrentFrame()]), presentQueue, framebufferResized, currentImage);
+        mSwapChain->EndFrameDrawing(graphicsQueue, *(mDefaultCommandPool->CommandBuffers()[mSwapChain->CurrentFrame()]), presentQueue, framebufferResized, currentImage);
     }
 
-    /**
-        Update the Uniform Buffer of the current image.
-
-        @param currentImage The integer to the current image being processed.
-    */
-    void updateUniformBuffer(uint32_t currentImage) {
-        // Use static to keep track of the previous time.
-        static auto startTime = std::chrono::high_resolution_clock::now();
-        auto currentTime = std::chrono::high_resolution_clock::now();
-        // The delta time in seconds.
-        float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
-
-        UniformBufferObject ubo{};
-        // Create the model matrix.
-        // This rotates the model on the Z-Axis, accounting for the deltaTime.
-        ubo.model = modelMatrix;
-        //ubo.model = glm::rotate(modelMatrix, time * glm::radians(90.0f), glm::vec3(0.0f, 1.0f, 0.0f));
-        // The view transformation. Loot at the geometry at a 45 degree angle.
-        ubo.view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
-        // 45 degree field of view for the projective.
-        ubo.proj = glm::perspective(glm::radians(45.0f), mSwapChain->Extent().width / (float)mSwapChain->Extent().height, 0.1f, 10.0f);
-
-        // Since GLM was desinged for OpenGL (which has its Y coordinate inverted) we need to flip the Y value in the project matrix.
-        ubo.proj[1][1] *= -1;
-
-        // Copy the data in the uniform buffer object to the current uniform buffer.
-        void* data;
-        vkMapMemory(device, uniformBuffersMemory[currentImage], 0, sizeof(ubo), 0, &data);
-        memcpy(data, &ubo, sizeof(ubo));
-        vkUnmapMemory(device, uniformBuffersMemory[currentImage]);
+    Ptr(VulkanCommandBuffer) GetFrameCommandBuffer()
+    {
 
     }
 
@@ -292,10 +170,7 @@ public:
             vkDestroyFramebuffer(device, framebuffer, nullptr);
         }
 
-        for (auto commandPool : mCommandPools)
-        {
-            commandPool->FreeCommandBuffers(device);
-        }
+        mDefaultCommandPool->FreeCommandBuffers(device);
 
         // Destroy the image views.
         for (auto imageView : mSwapChain->ImageViews()) {
@@ -304,11 +179,6 @@ public:
 
         // Destroy the swap chain.
         vkDestroySwapchainKHR(device, mSwapChain->SwapChain(), nullptr);
-
-        for (size_t i = 0; i < mSwapChain->Images().size(); i++) {
-            vkDestroyBuffer(device, uniformBuffers[i], nullptr);
-            vkFreeMemory(device, uniformBuffersMemory[i], nullptr);
-        }
 
         vkDestroyDescriptorPool(device, mDescriptorHandler->BuiltDescriptorPool(), nullptr);
     }
@@ -325,16 +195,9 @@ public:
             
 
         // Cleanup the syncronization objects for the frames.
-        for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
-            vkDestroySemaphore(device, renderFinishedSemaphores[i], nullptr);
-            vkDestroySemaphore(device, imageAvailableSemaphores[i], nullptr);
-            vkDestroyFence(device, inFlightFences[i], nullptr);
-        }
+        mSwapChain->CleanUp();
 
-        for (auto commandPool : mCommandPools)
-        {
-            commandPool->DestroyCommandPool(device);
-        }
+        mDefaultCommandPool->DestroyCommandPool(device);
 
         // Destroy the device.
         vkDestroyDevice(device, nullptr);
@@ -378,19 +241,7 @@ public:
 
     void CreateBufferUtilities()
     {
-        mBufferUtilities = std::make_shared<VulkanBufferUtilities>(physicalDevice, device, mCommandPools[0]->CommandPool(), graphicsQueue);
-    }
-
-    // Create the uniform buffer for each swapchain image.
-    void CreateUniformBuffers() {
-        VkDeviceSize bufferSize = sizeof(UniformBufferObject);
-        uniformBuffers.resize(mSwapChain->Images().size());
-        uniformBuffersMemory.resize(mSwapChain->Images().size());
-
-        // Create a uniform buffer for each swapchain image.
-        for (size_t i = 0; i < mSwapChain->Images().size(); i++) {
-            mBufferUtilities->CreateBuffer(bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, uniformBuffers[i], uniformBuffersMemory[i]);
-        }
+        mBufferUtilities = std::make_shared<VulkanBufferUtilities>(physicalDevice, device, mDefaultCommandPool->CommandPool(), graphicsQueue);
     }
 
     // Recreate the swap chain when needed (like on window resize).
@@ -420,7 +271,7 @@ public:
 
     void CreateDefaultRenderCommandBuffers(VkBuffer vertexBuffer, VkBuffer indexBuffer, uint32_t indices) {
         for (size_t i = 0; i < mSwapChain->FrameBuffers().size(); i++) {
-            auto commandBuffer = mCommandPools[0]->CreateCommandBuffer(device);
+            auto commandBuffer = mDefaultCommandPool->CreateCommandBuffer(device);
             commandBuffer->StartCommandRecording();
             commandBuffer->StartRenderPass(renderPass, mSwapChain->FrameBuffers()[i], mSwapChain->Extent(), {164/255.0, 236/255.0, 252/255.0, 1.0});
             commandBuffer->BindPipeline(mGraphicsPipeline->Pipeline());
@@ -437,8 +288,8 @@ public:
 
     // Create the command buffers.
     // TODO:: Make command system customizable.
-    void CreateCommandPool(std::string identifier) {
-        mCommandPools.push_back(std::make_shared<VulkanCommandPool>(surface, physicalDevice, device, identifier));
+    void CreateDefaultCommandPool(std::string identifier) {
+        mDefaultCommandPool = std::make_shared<VulkanCommandPool>(surface, physicalDevice, device, identifier);
     }
 
     void CreateRenderPass();

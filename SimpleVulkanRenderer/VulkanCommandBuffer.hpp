@@ -35,6 +35,7 @@ public:
 	void SetViewport(float x, float y, float width, float height, float minDepth, float maxDepth);
 	void SetScissor(VkOffset2D offset, VkExtent2D extent);
 	void SetViewportScissor(VkExtent2D swapChainExtent);
+	void Reset(VkCommandBufferResetFlags resetFlags = 0);
 	// ---------------------------------------------------
 	// Memory Copying
 	// ---------------------------------------------------

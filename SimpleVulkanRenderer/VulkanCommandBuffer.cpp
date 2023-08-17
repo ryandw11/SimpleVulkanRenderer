@@ -118,6 +118,11 @@ void VulkanCommandBuffer::SetViewportScissor(VkExtent2D swapChainExtent)
 	SetScissor({ 0, 0 }, swapChainExtent);
 }
 
+void VulkanCommandBuffer::Reset(VkCommandBufferResetFlags resetFlags)
+{
+	vkResetCommandBuffer(mCommandBuffer, resetFlags);
+}
+
 void VulkanCommandBuffer::CopyBuffer(VkBuffer sourceBuffer, VkBuffer destinationBuffer, VkBufferCopy copyRegion)
 {
 	vkCmdCopyBuffer(mCommandBuffer, sourceBuffer, destinationBuffer, 1, &copyRegion);

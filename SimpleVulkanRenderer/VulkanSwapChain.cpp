@@ -273,6 +273,15 @@ void VulkanSwapChain::EndFrameDrawing(VkQueue graphicsQueue, VkCommandBuffer com
     mCurrentFrame = (mCurrentFrame + 1) % 2;
 }
 
+void VulkanSwapChain::CleanUp()
+{
+    for (size_t i = 0; i < 2; i++) {
+        vkDestroySemaphore(mDevice, mRenderFinishedSemaphore[i], nullptr);
+        vkDestroySemaphore(mDevice, mImageAvailableSemaphore[i], nullptr);
+        vkDestroyFence(mDevice, mInFlightFence[i], nullptr);
+    }
+}
+
 void VulkanSwapChain::CreateImageViews()
 {
     // Resize to be the same size as the number of swap chain images.

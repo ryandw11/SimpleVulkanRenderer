@@ -85,8 +85,7 @@ public:
 	/// </summary>
 	void EndFrameDrawing(VkQueue graphicsQueue, VkCommandBuffer commandBuffer, VkQueue presentationQueue, bool& framebufferResized, uint32_t imageIndex);
 
-	// TODO
-	//void CleanUp();
+	void CleanUp();
 
 	// Getters
 

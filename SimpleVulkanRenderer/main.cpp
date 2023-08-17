@@ -20,6 +20,7 @@
 #include "VulkanVertexShader.hpp"
 #include "VulkanFragmentShader.hpp"
 #include "VulkanTexture.hpp"
+#include "VulkanMappedBuffer.hpp"
 #include "GreedyMesh.h"
 
 constexpr auto WIDTH = 800;
@@ -29,7 +30,7 @@ std::shared_ptr<VulkanRenderer> renderer;
 
 /*
     =============================
-    Scene Buffers
+    Scene Data
     =============================
 */
 VulkanBuffer vertexBuffer;
@@ -38,6 +39,50 @@ std::vector<Vertex> vertices;
 VkBuffer indexBuffer;
 VkDeviceMemory indexBufferMemory;
 std::vector<uint32_t> indices;
+
+// The struct for uniforms.
+struct UniformBufferObject {
+    // Explicitly align the data for uniforms
+    // mat4 must align on 16 bytes.
+    alignas(16) glm::mat4 model;
+    alignas(16) glm::mat4 view;
+    alignas(16) glm::mat4 proj;
+};
+VulkanFrameObject<VulkanMappedBuffer> mappedUniformBuffers;
+glm::mat4 modelMatrix;
+
+std::vector<Vertex> cubeVertices =
+{
+            {{-0.5f, 0.5f, 0.5f}, {0.0f, 0.0f, 0.0f}, {0.0f, 0.0f}},
+            {{-0.5f, -0.5f, 0.5f}, {0.0f, 0.0f, 0.0f}, {0.0f, 1.0f}},
+            {{0.5f, -0.5f, 0.5f}, {0.0f, 0.0f, 0.0f}, {1.0f, 1.0f}},
+            {{0.5f, 0.5f, 0.5f}, {0.0f, 0.0f, 0.0f}, {1.0f, 0.0f}},
+            //back
+            {{-0.5f, 0.5f, -0.5f}, {0.0f, 0.0f, 0.0f}, {0.0f, 0.0f}},
+            {{-0.5f, -0.5f, -0.5f}, {0.0f, 0.0f, 0.0f}, {0.0f, 1.0f}},
+            {{0.5f, -0.5f, -0.5f}, {0.0f, 0.0f, 0.0f}, {1.0f, 1.0f}},
+            {{0.5f, 0.5f, -0.5f}, {0.0f, 0.0f, 0.0f}, {1.0f, 0.0f}},
+            //top
+            {{-0.5f, 0.5f, -0.5f}, {0.0f, 0.0f, 0.0f}, {0.0f, 0.0f}},
+            {{-0.5f, 0.5f, 0.5f}, {0.0f, 0.0f, 0.0f}, {0.0f, 1.0f}},
+            {{0.5f, 0.5f, 0.5f}, {0.0f, 0.0f, 0.0f}, {1.0f, 1.0f}},
+            {{0.5f, 0.5f, -0.5f}, {0.0f, 0.0f, 0.0f}, {1.0f, 0.0f}},
+            //bottom
+            {{-0.5f, -0.5f, -0.5f}, {0.0f, 0.0f, 0.0f}, {0.0f, 0.0f}},
+            {{-0.5f, -0.5f, 0.5f}, {0.0f, 0.0f, 0.0f}, {0.0f, 1.0f}},
+            {{0.5f, -0.5f, 0.5f}, {0.0f, 0.0f, 0.0f}, {1.0f, 1.0f}},
+            {{0.5f, -0.5f, -0.5f}, {0.0f, 0.0f, 0.0f}, {1.0f, 0.0f}},
+            //right
+            {{0.5f, 0.5f, 0.5f}, {0.0f, 0.0f, 0.0f}, {0.0f, 0.0f}},
+            {{0.5f, -0.5f, 0.5f}, {0.0f, 0.0f, 0.0f}, {0.0f, 1.0f}},
+            {{0.5f, -0.5f, -0.5f}, {0.0f, 0.0f, 0.0f}, {1.0f, 1.0f}},
+            {{0.5f, 0.5f, -0.5f}, {0.0f, 0.0f, 0.0f}, {1.0f, 0.0f}},
+            // left
+            {{-0.5f, 0.5f, -0.5f}, {0.0f, 0.0f, 0.0f}, {0.0f, 0.0f}},
+            {{-0.5f, -0.5f, -0.5f}, {0.0f, 0.0f, 0.0f}, {0.0f, 1.0f}},
+            {{-0.5f, -0.5f, 0.5f}, {0.0f, 0.0f, 0.0f}, {1.0f, 1.0f}},
+            {{-0.5f, 0.5f, 0.5f}, {0.0f, 0.0f, 0.0f}, {1.0f, 0.0f}}
+    };
 
 const std::vector<Vertex> vers = {
     {{-0.5f, -0.5f, 0.0f}, {1.0f, 0.0f, 0.0f}, {1.0f, 0.0f}},
@@ -48,6 +93,20 @@ const std::vector<Vertex> vers = {
 
 const std::vector<uint32_t> ind = {
     0, 1, 2, 2, 3, 0
+};
+
+std::vector<uint32_t> cubeIndices = {
+            0, 1, 2, 2, 3, 0,
+            // back
+            4, 7, 6, 6, 5, 4,
+            // top
+            8, 9, 10, 10, 11, 8,
+            // bottom
+            12, 15, 14, 14, 13, 12,
+            // right
+            16, 17, 18, 18, 19, 16,
+            // left
+            20, 21, 22, 22, 23, 20
 };
 
 // Load the model.
@@ -81,7 +140,7 @@ std::shared_ptr<VulkanVertexShader> CreateVertexShader(VkDevice device)
     auto vertexShader = std::make_shared<VulkanVertexShader>(device, "main", "shaders/vert.spv");
     vertexShader->VertexAttribute(0, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(Vertex, Vertex::pos));
     vertexShader->VertexAttribute(0, 1, VK_FORMAT_R32G32B32_SFLOAT, offsetof(Vertex, Vertex::color));
-    vertexShader->VertexAttribute(0, 2, VK_FORMAT_R32G32_SFLOAT, offsetof(Vertex, Vertex::color));
+    vertexShader->VertexAttribute(0, 2, VK_FORMAT_R32G32_SFLOAT, offsetof(Vertex, Vertex::texCoord));
     
     vertexShader->VertexUniformBinding(0, sizeof(Vertex));
 
@@ -97,11 +156,46 @@ std::shared_ptr<VulkanFragmentShader> CreateFragmentShader(VkDevice device)
 
 void SetupBuffers()
 {
-    // Vertex Buffers
-    vertexBuffer = renderer->mBufferUtilities->CreateVertexBuffer(vers);
+    // Vertex Buffer
+    vertexBuffer = renderer->mBufferUtilities->CreateVertexBuffer(cubeVertices);
 
-    renderer->mBufferUtilities->CreateIndexBuffer(ind, indexBuffer, indexBufferMemory);
+    // Index Buffer
+    renderer->mBufferUtilities->CreateIndexBuffer(cubeIndices, indexBuffer, indexBufferMemory);
+
+    // Uniform Buffers
+    VkDeviceSize bufferSize = sizeof(UniformBufferObject);
+    mappedUniformBuffers = VulkanFrameObject<VulkanMappedBuffer>(2 /*Swapchain Size*/);
+    // Create a uniform buffer for each swapchain image.
+    for (size_t i = 0; i < 2; i++) {
+        renderer->mBufferUtilities->CreateBuffer(bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, mappedUniformBuffers[i], mappedUniformBuffers[i]);
+        renderer->mBufferUtilities->MapMemory(mappedUniformBuffers[i], 0, sizeof(UniformBufferObject), 0, mappedUniformBuffers[i].DirectMappedMemory());
+    }
 }
+void UpdateUniformBuffer(uint32_t currentImage) {
+    // Use static to keep track of the previous time.
+    static auto startTime = std::chrono::high_resolution_clock::now();
+    auto currentTime = std::chrono::high_resolution_clock::now();
+    // The delta time in seconds.
+    float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
+
+    UniformBufferObject ubo{};
+    // Create the model matrix.
+    // This rotates the model on the Z-Axis, accounting for the deltaTime.
+    ubo.model = modelMatrix;
+    //ubo.model = glm::rotate(modelMatrix, time * glm::radians(90.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+    // The view transformation. Loot at the geometry at a 45 degree angle.
+    ubo.view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+    // 45 degree field of view for the projective.
+    ubo.proj = glm::perspective(glm::radians(45.0f), renderer->mSwapChain->Extent().width / (float)renderer->mSwapChain->Extent().height, 0.1f, 10.0f);
+
+    // Since GLM was desinged for OpenGL (which has its Y coordinate inverted) we need to flip the Y value in the project matrix.
+    ubo.proj[1][1] *= -1;
+
+    // Copy the data in the uniform buffer object to the current uniform buffer.
+    memcpy(mappedUniformBuffers[currentImage].MappedMemory(), &ubo, sizeof(ubo));
+
+}
+
 
 void CleanUpBuffers()
 {
@@ -109,6 +203,11 @@ void CleanUpBuffers()
     vkFreeMemory(renderer->device, indexBufferMemory, nullptr);
 
     vertexBuffer.DestoryBuffer(renderer->device);
+
+    for (int i = 0; i < 2; i++)
+    {
+        mappedUniformBuffers[i].DestoryBuffer(renderer->device);
+    }
 }
 
 int main() {
@@ -144,11 +243,10 @@ int main() {
 
     std::cout << "Test" << std::endl;
 
-    renderer->CreateCommandPool("Test");
+    renderer->CreateDefaultCommandPool("Test");
     renderer->CreateBufferUtilities();
     loadModel();
     SetupBuffers();
-    renderer->CreateUniformBuffers();
 
     // Create Texture
     VulkanTexture texture("textures/texture.jpg", renderer, renderer->mBufferUtilities);
@@ -156,17 +254,17 @@ int main() {
     // Setup descriptor sets
     descriptorHandler->CreateDescriptorPool(renderer->mSwapChain->FrameBuffers().size());
     auto descriptorSetBuilder = descriptorHandler->DescriptorSetBuilder();
-    descriptorSetBuilder->DescribeBuffer(0, 0, renderer->uniformBuffers, sizeof(UniformBufferObject));
+    descriptorSetBuilder->DescribeBuffer(0, 0, mappedUniformBuffers, sizeof(UniformBufferObject));
     descriptorSetBuilder->DescribeImageSample(1, 0, texture.ImageView(), texture.Sampler());
     descriptorSetBuilder->UpdateDescriptorSets();
 
-    renderer->CreateDefaultRenderCommandBuffers(vertexBuffer, indexBuffer, static_cast<uint32_t>(ind.size()));
+    renderer->CreateDefaultRenderCommandBuffers(vertexBuffer, indexBuffer, static_cast<uint32_t>(cubeIndices.size()));
 
     // Main Loop::
-    renderer->modelMatrix = glm::mat4(1.0f);
-    renderer->modelMatrix = glm::scale(renderer->modelMatrix, glm::vec3(0.5f, 0.5f, 0.5f));
-    renderer->modelMatrix = glm::rotate(renderer->modelMatrix, (float)glm::radians(90.0f), glm::vec3(1.0f, 0.0f, 0.0f));
-    renderer->modelMatrix = glm::translate(renderer->modelMatrix, glm::vec3(0.0f, -1.0f, 0.0f));
+    modelMatrix = glm::mat4(1.0f);
+    modelMatrix = glm::scale(modelMatrix, glm::vec3(0.5f, 0.5f, 0.5f));
+    modelMatrix = glm::rotate(modelMatrix, (float)glm::radians(90.0f), glm::vec3(1.0f, 0.0f, 0.0f));
+    modelMatrix = glm::translate(modelMatrix, glm::vec3(0.0f, -1.0f, 0.0f));
 
     // Keep track of the last loop time.
     auto lastLoopTime = std::chrono::duration_cast<std::chrono::nanoseconds> (std::chrono::system_clock::now().time_since_epoch()).count() / 1000000000.0;
@@ -185,24 +283,24 @@ int main() {
         // If the left key is press, rotate the object left.
         int leftKeyState = glfwGetKey(renderer->window, GLFW_KEY_LEFT);
         if (leftKeyState == GLFW_PRESS) {
-            renderer->modelMatrix = glm::rotate(renderer->modelMatrix, deltaTime * glm::radians(90.0f), glm::vec3(0.0f, -1.0f, 0.0f));
+            modelMatrix = glm::rotate(modelMatrix, deltaTime * glm::radians(90.0f), glm::vec3(0.0f, -1.0f, 0.0f));
         }
 
         // If the right key is pressed, rotate the object right.
         int rightKeyState = glfwGetKey(renderer->window, GLFW_KEY_RIGHT);
         if (rightKeyState == GLFW_PRESS) {
-            renderer->modelMatrix = glm::rotate(renderer->modelMatrix, deltaTime * glm::radians(90.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+           modelMatrix = glm::rotate(modelMatrix, deltaTime * glm::radians(90.0f), glm::vec3(0.0f, 1.0f, 0.0f));
         }
 
         // If the right key is pressed, rotate the object right.
         int shiftKeyState = glfwGetKey(renderer->window, GLFW_KEY_LEFT_SHIFT);
         if (shiftKeyState == GLFW_PRESS) {
-            renderer->modelMatrix = glm::translate(renderer->modelMatrix, glm::vec3(0, -1 * deltaTime, 0));
+            modelMatrix = glm::translate(modelMatrix, glm::vec3(0, -1 * deltaTime, 0));
         }
 
         auto currentImage = renderer->StartFrameDrawing();
 
-        renderer->updateUniformBuffer(currentImage);
+        UpdateUniformBuffer(currentImage);
 
         renderer->EndFrameDrawing(currentImage);
     }

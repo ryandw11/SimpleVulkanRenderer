@@ -36,6 +36,28 @@ void VulkanDescriptorSetBuilder::DescribeBuffer(uint32_t binding, uint32_t array
     mSetInfos.push_back(setInfo);
 }
 
+void VulkanDescriptorSetBuilder::DescribeBuffer(uint32_t binding, uint32_t arrayElement, VulkanFrameObject<VulkanBuffer> buffer, VkDeviceSize range)
+{
+    std::vector<VkBuffer> buffers;
+    for (auto buff : buffer.InternalVector())
+    {
+        buffers.push_back(buff);
+    }
+
+    DescribeBuffer(binding, arrayElement, buffers, range);
+}
+
+void VulkanDescriptorSetBuilder::DescribeBuffer(uint32_t binding, uint32_t arrayElement, VulkanFrameObject<VulkanMappedBuffer> buffer, VkDeviceSize range)
+{
+    std::vector<VkBuffer> buffers;
+    for (auto buff : buffer.InternalVector())
+    {
+        buffers.push_back(buff);
+    }
+
+    DescribeBuffer(binding, arrayElement, buffers, range);
+}
+
 void VulkanDescriptorSetBuilder::DescribeImageSample(uint32_t binding, uint32_t arrayElement, VulkanFrameImageView imageView, VulkanFrameSampler sampler)
 {
     DescriptorSetInfo setInfo;

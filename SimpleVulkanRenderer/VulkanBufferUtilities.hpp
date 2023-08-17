@@ -80,6 +80,20 @@ public:
 		return buffer;
 	}
 
+	// ---------------------------------------------------
+	// Buffer Memory Mapping
+	// ---------------------------------------------------
+
+	/// <summary>
+	/// Creates a persistent mapping to a buffer (actually it's device memory).
+	/// </summary>
+	/// <param name="memory">The memory of the buffer.</param>
+	/// <param name="offset">The offset to map to.</param>
+	/// <param name="bufferSize">The size of the buffer.</param>
+	/// <param name="flags">The flags.</param>
+	/// <param name="data">The wild pointer which you can memcpy your data to.</param>
+	void MapMemory(VkDeviceMemory memory, VkDeviceSize offset, VkDeviceSize bufferSize, VkMemoryMapFlags flags, void** data);
+
 private:
 	VkPhysicalDevice mPhysicalDevice;
 	VkDevice mDevice;

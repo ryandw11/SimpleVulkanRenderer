@@ -6,6 +6,8 @@
 
 #include "VulkanIncludes.hpp"
 #include "VulkanFrameObject.hpp"
+#include "VulkanBuffer.hpp"
+#include "VulkanMappedBuffer.hpp"
 
 class VulkanDescriptorSetBuilder
 {
@@ -34,6 +36,8 @@ public:
 	VulkanDescriptorSetBuilder(VkDevice device, VkDescriptorPool pool, VkDescriptorSetLayout layout, uint32_t setCount);
 
 	void DescribeBuffer(uint32_t binding, uint32_t arrayElement, VulkanFrameBuffer buffer, VkDeviceSize range);
+	void DescribeBuffer(uint32_t binding, uint32_t arrayElement, VulkanFrameObject<VulkanBuffer> buffer, VkDeviceSize range);
+	void DescribeBuffer(uint32_t binding, uint32_t arrayElement, VulkanFrameObject<VulkanMappedBuffer> buffer, VkDeviceSize range);
 	void DescribeImageSample(uint32_t binding, uint32_t arrayElement, VulkanFrameImageView imageView, VulkanFrameSampler sampler);
 
 	std::vector<VkDescriptorSet> UpdateDescriptorSets();

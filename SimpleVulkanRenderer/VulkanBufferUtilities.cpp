@@ -91,3 +91,8 @@ void VulkanBufferUtilities::CopyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, V
     commandBuffer->CopyBuffer(srcBuffer, dstBuffer, copyRegion);
     commandBuffer->SubmitSingleUseCommand(mDevice, usedQueue);
 }
+
+void VulkanBufferUtilities::MapMemory(VkDeviceMemory memory, VkDeviceSize offset, VkDeviceSize bufferSize, VkMemoryMapFlags flags, void** data)
+{
+    vkMapMemory(mDevice, memory, offset, bufferSize, flags, data);
+}

@@ -187,6 +187,7 @@
     <ClInclude Include="VulkanGraphicsPipeline.hpp" />
     <ClInclude Include="VulkanImageUtilities.hpp" />
     <ClInclude Include="VulkanIncludes.hpp" />
+    <ClInclude Include="VulkanMappedBuffer.hpp" />
     <ClInclude Include="VulkanPipelineHolderIntf.hpp" />
     <ClInclude Include="VulkanRenderer.hpp" />
     <ClInclude Include="VulkanRendererMemeoryUtils.hpp" />
