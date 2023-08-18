@@ -199,66 +199,51 @@ void UpdateUniformBuffer(uint32_t currentImage) {
 
 void CleanUpBuffers()
 {
-    vkDestroyBuffer(renderer->device, indexBuffer, nullptr);
-    vkFreeMemory(renderer->device, indexBufferMemory, nullptr);
+    vkDestroyBuffer(renderer->mDevice, indexBuffer, nullptr);
+    vkFreeMemory(renderer->mDevice, indexBufferMemory, nullptr);
 
-    vertexBuffer.DestoryBuffer(renderer->device);
+    vertexBuffer.DestoryBuffer(renderer->mDevice);
 
     for (int i = 0; i < 2; i++)
     {
-        mappedUniformBuffers[i].DestoryBuffer(renderer->device);
+        mappedUniformBuffers[i].DestoryBuffer(renderer->mDevice);
     }
 }
 
 int main() {
     renderer = std::make_shared<VulkanRenderer>();
 
-    renderer->CreateGLFWWindow(WIDTH, HEIGHT, "Test Renderer Application");
+    VulkanAutoInitSettings autoInitSettings;
+    autoInitSettings.InstanceInfo.ApplicationName = "Test Application";
+    autoInitSettings.InstanceInfo.ApplicationVersion = VK_MAKE_VERSION(1, 0, 0);
+    autoInitSettings.SetupDebug = true;
+    autoInitSettings.WindowHeight = HEIGHT;
+    autoInitSettings.WindowWidth = WIDTH;
+    autoInitSettings.WindowName = "Test Renderer Application";
 
-    VulkanInstanceInfo instanceInfo;
-    instanceInfo.ApplicationName = "Test Application";
-    instanceInfo.ApplicationVersion = VK_MAKE_VERSION(1, 0, 0);
-    renderer->CreateVulkanInstance(instanceInfo);
-
-    renderer->SetupDebugMessenger();
-    renderer->CreateGLFWSurface();
-    renderer->SelectPhysicalDevice();
-    renderer->CreateLogicalDevice();
-
-    SwapChainDescriptor swapChainDescriptor;
-    renderer->SetupSwapChain(swapChainDescriptor);
-    
-    // Setup descriptor layouts
-    auto descriptorHandler = std::make_shared<VulkanDescriptorLayout>(renderer->device);
-    renderer->mDescriptorHandler = descriptorHandler;
-    descriptorHandler->UniformBufferBinding(/*Binding*/ 0, /*Count*/ 1, VK_SHADER_STAGE_VERTEX_BIT);
-    descriptorHandler->ImageSamplerBinding(1, 1, VK_SHADER_STAGE_FRAGMENT_BIT);
-    descriptorHandler->BuildLayout();
-    
-
-    GraphicsPipelineDescriptor pipelineDescriptor;
-    pipelineDescriptor.VertexShader = CreateVertexShader(renderer->device);
-    pipelineDescriptor.FragmentShader = CreateFragmentShader(renderer->device);
-    renderer->CreateGraphicsPipeline(pipelineDescriptor);
-
-    std::cout << "Test" << std::endl;
-
-    renderer->CreateDefaultCommandPool("Test");
-    renderer->CreateBufferUtilities();
-    loadModel();
-    SetupBuffers();
-
-    // Create Texture
-    VulkanTexture texture("textures/texture.jpg", renderer, renderer->mBufferUtilities);
-
-    // Setup descriptor sets
-    descriptorHandler->CreateDescriptorPool(renderer->mSwapChain->FrameBuffers().size());
-    auto descriptorSetBuilder = descriptorHandler->DescriptorSetBuilder();
-    descriptorSetBuilder->DescribeBuffer(0, 0, mappedUniformBuffers, sizeof(UniformBufferObject));
-    descriptorSetBuilder->DescribeImageSample(1, 0, texture.ImageView(), texture.Sampler());
-    descriptorSetBuilder->UpdateDescriptorSets();
-
-    renderer->CreateDefaultRenderCommandBuffers();
+    renderer->AutoInitialize(
+        autoInitSettings,
+        [](auto descriptorLayout) { /* Create Default Descriptor Layout */
+            // Describes the uniforms that are used in the shaders.
+            descriptorLayout->UniformBufferBinding(/*Binding*/ 0, /*Count*/ 1, VK_SHADER_STAGE_VERTEX_BIT);
+            descriptorLayout->ImageSamplerBinding(1, 1, VK_SHADER_STAGE_FRAGMENT_BIT);
+        },
+        []() { /* Pipeline Creation Stage */
+            GraphicsPipelineDescriptor pipeline;
+            pipeline.VertexShader = CreateVertexShader(renderer->mDevice);
+            pipeline.FragmentShader = CreateFragmentShader(renderer->mDevice);
+            return pipeline;
+        },
+        []() { /* General Loading Stage */
+            loadModel();
+            SetupBuffers();
+        },
+        [](auto setBuilder) { /* Create the default descriptor sets for each framebuffer. */
+            VulkanTexture texture("textures/texture.jpg", renderer, renderer->mBufferUtilities);
+            setBuilder->DescribeBuffer(0, 0, mappedUniformBuffers, sizeof(UniformBufferObject));
+            setBuilder->DescribeImageSample(1, 0, texture.ImageView(), texture.Sampler());
+        }
+    );
 
     // Main Loop::
     modelMatrix = glm::mat4(1.0f);
@@ -269,7 +254,7 @@ int main() {
     // Keep track of the last loop time.
     auto lastLoopTime = std::chrono::duration_cast<std::chrono::nanoseconds> (std::chrono::system_clock::now().time_since_epoch()).count() / 1000000000.0;
     // Event loop.
-    while (!glfwWindowShouldClose(renderer->window)) {
+    while (!glfwWindowShouldClose(renderer->mWindow)) {
         glfwPollEvents();
 
         auto time = std::chrono::duration_cast<std::chrono::nanoseconds> (std::chrono::system_clock::now().time_since_epoch()).count() / 1000000000.0;
@@ -278,22 +263,22 @@ int main() {
         lastLoopTime = time;
 
         // Display the FPS on the title.
-        glfwSetWindowTitle(renderer->window, ("Vulkan Test | FPS: " + std::to_string(1 / deltaTime)).c_str());
+        glfwSetWindowTitle(renderer->mWindow, ("Vulkan Test | FPS: " + std::to_string(1 / deltaTime)).c_str());
 
         // If the left key is press, rotate the object left.
-        int leftKeyState = glfwGetKey(renderer->window, GLFW_KEY_LEFT);
+        int leftKeyState = glfwGetKey(renderer->mWindow, GLFW_KEY_LEFT);
         if (leftKeyState == GLFW_PRESS) {
             modelMatrix = glm::rotate(modelMatrix, deltaTime * glm::radians(90.0f), glm::vec3(0.0f, -1.0f, 0.0f));
         }
 
         // If the right key is pressed, rotate the object right.
-        int rightKeyState = glfwGetKey(renderer->window, GLFW_KEY_RIGHT);
+        int rightKeyState = glfwGetKey(renderer->mWindow, GLFW_KEY_RIGHT);
         if (rightKeyState == GLFW_PRESS) {
            modelMatrix = glm::rotate(modelMatrix, deltaTime * glm::radians(90.0f), glm::vec3(0.0f, 1.0f, 0.0f));
         }
 
         // If the right key is pressed, rotate the object right.
-        int shiftKeyState = glfwGetKey(renderer->window, GLFW_KEY_LEFT_SHIFT);
+        int shiftKeyState = glfwGetKey(renderer->mWindow, GLFW_KEY_LEFT_SHIFT);
         if (shiftKeyState == GLFW_PRESS) {
             modelMatrix = glm::translate(modelMatrix, glm::vec3(0, -1 * deltaTime, 0));
         }
@@ -323,7 +308,7 @@ int main() {
         renderer->EndFrameDrawing(currentImage);
     }
 
-    vkDeviceWaitIdle(renderer->device);
+    vkDeviceWaitIdle(renderer->mDevice);
 
     CleanUpBuffers();
     renderer->cleanup();

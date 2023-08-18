@@ -127,9 +127,9 @@ void VulkanRenderer::CreateGLFWWindow(int width, int height, std::string name) {
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
 
     // Create the window.
-    window = glfwCreateWindow(width, height, name.c_str(), nullptr, nullptr);
-    glfwSetWindowUserPointer(window, this);
-    glfwSetFramebufferSizeCallback(window, framebufferResizeCallback);
+    mWindow = glfwCreateWindow(width, height, name.c_str(), nullptr, nullptr);
+    glfwSetWindowUserPointer(mWindow, this);
+    glfwSetFramebufferSizeCallback(mWindow, framebufferResizeCallback);
 }
 
 void VulkanRenderer::CreateVulkanInstance(VulkanInstanceInfo instanceInfo)
@@ -178,7 +178,7 @@ void VulkanRenderer::CreateVulkanInstance(VulkanInstanceInfo instanceInfo)
 
     // Create the Vulkan Instace. Pass in the info and instance variable by refrence. The instance var is populated by this method.
     // Pointer to struct with creation info, pointer to custom allocater, pointer to variable that stores the handle for the new object.
-    if (vkCreateInstance(&createInfo, nullptr, &instance) != VK_SUCCESS)
+    if (vkCreateInstance(&createInfo, nullptr, &mInstance) != VK_SUCCESS)
     {
         throw new std::runtime_error("Failed to create Vulkan Instance!");
     }
@@ -197,10 +197,41 @@ void VulkanRenderer::SetupDebugMessenger()
     VkDebugUtilsMessengerCreateInfoEXT createInfo;
     PopulateDebugMessengerCreateInfo(createInfo);
 
-    if (CreateDebugUtilsMessengerEXT(instance, &createInfo, nullptr, &debugMessenger) != VK_SUCCESS)
+    if (CreateDebugUtilsMessengerEXT(mInstance, &createInfo, nullptr, &mDebugMessenger) != VK_SUCCESS)
     {
         throw std::runtime_error("Failed to set up debug messenger!");
     }
+}
+
+void VulkanRenderer::AutoInitialize(VulkanAutoInitSettings settings, std::function<void(Ptr(VulkanDescriptorLayout))> descriptorLayoutBuilderStage, std::function<GraphicsPipelineDescriptor()> pipelineDescriptionStage, std::function<void()> loadingStage, std::function<void(Ptr(VulkanDescriptorSetBuilder))> descriptorSetCreationStage)
+{
+    CreateGLFWWindow(settings.WindowWidth, settings.WindowHeight, "Test Renderer Application");
+    CreateVulkanInstance(settings.InstanceInfo);
+    if (settings.SetupDebug)
+    {
+        SetupDebugMessenger();
+    }
+    CreateGLFWSurface();
+    SelectPhysicalDevice();
+    CreateLogicalDevice();
+    SetupSwapChain(settings.SwapChainDescriptor);
+
+    mDescriptorHandler = std::make_shared<VulkanDescriptorLayout>(mDevice);
+    descriptorLayoutBuilderStage(mDescriptorHandler);
+    mDescriptorHandler->BuildLayout();
+
+    CreateGraphicsPipeline(pipelineDescriptionStage());
+    CreateDefaultCommandPool("DefaultCommandPool");
+    CreateBufferUtilities();
+
+    loadingStage();
+
+    mDescriptorHandler->CreateDescriptorPool(mSwapChain->FrameBuffers().size());
+    auto descriptorSetBuilder = mDescriptorHandler->DescriptorSetBuilder();
+    descriptorSetCreationStage(descriptorSetBuilder);
+    descriptorSetBuilder->UpdateDescriptorSets();
+
+    CreateDefaultRenderCommandBuffers();
 }
 
 /// <summary>
@@ -210,7 +241,7 @@ void VulkanRenderer::SetupDebugMessenger()
 /// </summary>
 void VulkanRenderer::CreateGLFWSurface()
 {
-    if (glfwCreateWindowSurface(instance, window, nullptr, &surface) != VK_SUCCESS)
+    if (glfwCreateWindowSurface(mInstance, mWindow, nullptr, &mSurface) != VK_SUCCESS)
     {
         throw std::runtime_error("Failed to create window surface!");
     }
@@ -227,7 +258,7 @@ void VulkanRenderer::CreateGLFWSurface()
 void VulkanRenderer::SelectPhysicalDevice()
 {
     uint32_t deviceCount = 0;
-    vkEnumeratePhysicalDevices(instance, &deviceCount, nullptr);
+    vkEnumeratePhysicalDevices(mInstance, &deviceCount, nullptr);
 
     if (deviceCount == 0)
     {
@@ -235,18 +266,18 @@ void VulkanRenderer::SelectPhysicalDevice()
     }
 
     std::vector<VkPhysicalDevice> devices(deviceCount);
-    vkEnumeratePhysicalDevices(instance, &deviceCount, devices.data());
+    vkEnumeratePhysicalDevices(mInstance, &deviceCount, devices.data());
 
     for (const auto& device : devices) {
         // TODO:: Make this function configuraeable. 
-        if (IsDeviceSuitable(device, surface))
+        if (IsDeviceSuitable(device, mSurface))
         {
-            physicalDevice = device;
+            mPhysicalDevice = device;
             break;
         }
     }
 
-    if (physicalDevice == VK_NULL_HANDLE)
+    if (mPhysicalDevice == VK_NULL_HANDLE)
     {
         throw std::runtime_error("Unable to find a suitable GPU!");
     }
@@ -262,7 +293,7 @@ void VulkanRenderer::SelectPhysicalDevice()
 /// </summary>
 void VulkanRenderer::CreateLogicalDevice()
 {
-    QueueFamilyIndices indices = FindQueueFamilies(physicalDevice, surface);
+    QueueFamilyIndices indices = FindQueueFamilies(mPhysicalDevice, mSurface);
 
     std::vector<VkDeviceQueueCreateInfo> queueCreateInfos;
     std::set<uint32_t> uniqueQueueFamilies = { indices.graphicsFamily.value(), indices.presentFamily.value() };
@@ -307,13 +338,13 @@ void VulkanRenderer::CreateLogicalDevice()
 
     // The params are the physicalDevice to interface with (GPU), the queue and usage info specified, allocation call back,
     // and a pointer to a variable to store the logical device handle in (the one defined in the private section of the class).
-    if (vkCreateDevice(physicalDevice, &createInfo, nullptr, &device) != VK_SUCCESS)
+    if (vkCreateDevice(mPhysicalDevice, &createInfo, nullptr, &mDevice) != VK_SUCCESS)
     {
         throw std::runtime_error("Failed to create logical deivce!");
     }
 
-    vkGetDeviceQueue(device, indices.graphicsFamily.value(), 0, &graphicsQueue);
-    vkGetDeviceQueue(device, indices.presentFamily.value(), 0, &presentQueue);
+    vkGetDeviceQueue(mDevice, indices.graphicsFamily.value(), 0, &mDefaultGraphicsQueue);
+    vkGetDeviceQueue(mDevice, indices.presentFamily.value(), 0, &mPresentQueue);
 }
 
 /// <summary>
@@ -322,11 +353,11 @@ void VulkanRenderer::CreateLogicalDevice()
 /// <param name="swapChainInfo">Configuration of the swap chain.</param>
 void VulkanRenderer::SetupSwapChain(const SwapChainDescriptor descriptor)
 {
-    mSwapChain = std::make_shared<VulkanSwapChain>(device, descriptor);
-    mSwapChain->InitializeSwapChain(window, surface, physicalDevice);
+    mSwapChain = std::make_shared<VulkanSwapChain>(mDevice, descriptor);
+    mSwapChain->InitializeSwapChain(mWindow, mSurface, mPhysicalDevice);
     CreateRenderPass();
-    mSwapChain->CreateDepthImage(physicalDevice);
-    mSwapChain->CreateFrameBuffers(renderPass);
+    mSwapChain->CreateDepthImage(mPhysicalDevice);
+    mSwapChain->CreateFrameBuffers(mRenderPass);
     mSwapChain->CreateSyncObjects();
 }
 
@@ -353,7 +384,7 @@ void VulkanRenderer::CreateRenderPass()
     colorAttachmentRef.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 
     VkAttachmentDescription depthAttachment{};
-    depthAttachment.format = FindDepthFormat(physicalDevice);
+    depthAttachment.format = FindDepthFormat(mPhysicalDevice);
     depthAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
     depthAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
     depthAttachment.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
@@ -392,7 +423,7 @@ void VulkanRenderer::CreateRenderPass()
     renderPassInfo.dependencyCount = 1;
     renderPassInfo.pDependencies = &dependency;
 
-    if (vkCreateRenderPass(device, &renderPassInfo, nullptr, &renderPass) != VK_SUCCESS)
+    if (vkCreateRenderPass(mDevice, &renderPassInfo, nullptr, &mRenderPass) != VK_SUCCESS)
     {
         throw std::runtime_error("Failed to create render pass!");
     }
@@ -405,5 +436,5 @@ void VulkanRenderer::CreateGraphicsPipeline(const GraphicsPipelineDescriptor& de
         throw std::runtime_error("Graphics Pipeline already exists!");
     }
     mGraphicsPipeline = std::make_shared<VulkanGraphicsPipeline>(descriptor);
-    mGraphicsPipeline->UpdatePipeline(device, renderPass, mDescriptorHandler->Layout());
+    mGraphicsPipeline->UpdatePipeline(mDevice, mRenderPass, mDescriptorHandler->Layout());
 }

@@ -25,6 +25,7 @@
 #include <unordered_map>
 #include <stdlib.h>
 #include <time.h>
+#include <functional>
 
 //#include "GreedyMesh.h"
 #include "VulkanRendererTypes.hpp"
@@ -63,62 +64,92 @@ struct SwapChainSupportDetails {
     std::vector<VkPresentModeKHR> presentModes;
 };
 
+struct VulkanAutoInitSettings
+{
+    VulkanInstanceInfo InstanceInfo;
+    int WindowWidth;
+    int WindowHeight;
+    std::string WindowName;
+    bool SetupDebug;
+    SwapChainDescriptor SwapChainDescriptor;
+};
+
 
 
 class VulkanRenderer : public VulkanPipelineHolderIntf {
-public:
+// ------------------------------------------------------------------------------------------------------------------
+public: // VulkanPipelineHolderIntf Implementation
+ // ------------------------------------------------------------------------------------------------------------------
     operator VkPhysicalDevice () override
     {
-        return physicalDevice;
+        return mPhysicalDevice;
     }
 
     operator VkDevice () override
     {
-        return device;
+        return mDevice;
     }
 
     operator VkQueue () override
     {
-        return graphicsQueue;
+        return mDefaultGraphicsQueue;
     }
 
     operator VkCommandPool () override
     {
         return mDefaultCommandPool->CommandPool();
     }
-public:
-    GLFWwindow* window;
-    VkInstance instance;
-    VkDebugUtilsMessengerEXT debugMessenger;
+
+// ------------------------------------------------------------------------------------------------------------------
+public: // Public Member Variables
+// ------------------------------------------------------------------------------------------------------------------
+    /*
+    
+        Here contain some of the basic universal vulkan types.
+
+        These can be manually changed if desired as long as it is done during the proper initalization phase.
+    
+    */
+    GLFWwindow* mWindow;
+    VkInstance mInstance;
+    VkDebugUtilsMessengerEXT mDebugMessenger;
     // Native surface.
-    VkSurfaceKHR surface;
-    VkPhysicalDevice physicalDevice = VK_NULL_HANDLE;
+    VkSurfaceKHR mSurface;
+    VkPhysicalDevice mPhysicalDevice = VK_NULL_HANDLE;
     // Logical Device:
-    VkDevice device;
-    VkQueue graphicsQueue;
-    VkQueue presentQueue;
+    VkDevice mDevice;
+    // Default Queues
+    VkQueue mDefaultGraphicsQueue;
+    VkQueue mPresentQueue;
 
-    VkRenderPass renderPass;
-
-    // Manages allocation of Command Buffers.
-    std::shared_ptr<VulkanCommandPool> mDefaultCommandPool;
+    // Default Rener Pass
+    VkRenderPass mRenderPass;
 
     // A flag that triggers when the window is resized.
     bool framebufferResized = false;
 
 
     /*
-        Custom stuff
+        Custom Handlers,
+        These can also be manually initalized or even subclassed.
     */
     std::shared_ptr<VulkanGraphicsPipeline> mGraphicsPipeline;
     std::shared_ptr<VulkanSwapChain> mSwapChain;
     std::shared_ptr<VulkanDescriptorLayout> mDescriptorHandler;
     std::shared_ptr<VulkanBufferUtilities> mBufferUtilities;
+    // Manages allocation of Command Buffers.
+    std::shared_ptr<VulkanCommandPool> mDefaultCommandPool;
 
-public:
-    // ----------------------------------------------------
+// ------------------------------------------------------------------------------------------------------------------
+public: // Public Methods
+// ------------------------------------------------------------------------------------------------------------------
+  
+    // ------------------------------------------------------------------------------------------------------------------
     // Initalizers
-    // ----------------------------------------------------
+    // ------------------------------------------------------------------------------------------------------------------
+    // These initalizes are separated so you can create custom objects in different stages
+    // if desired. Call AutoInitialize() if you don't want anything but the minimal amount of customization.
+
     void CreateGLFWWindow(int width, int height, std::string name);
     void CreateVulkanInstance(VulkanInstanceInfo instanceInfo);
     void CreateGLFWSurface();
@@ -128,9 +159,32 @@ public:
     void CreateRenderPass();
     void CreateGraphicsPipeline(const GraphicsPipelineDescriptor& descriptor);
     void CreateDefaultCommandPool(std::string identifier) {
-        mDefaultCommandPool = std::make_shared<VulkanCommandPool>(surface, physicalDevice, device, identifier);
+        mDefaultCommandPool = std::make_shared<VulkanCommandPool>(mSurface, mPhysicalDevice, mDevice, identifier);
     }
     void SetupDebugMessenger();
+
+    /// <summary>
+    /// This function will handle the default initialization of the renderer for you.
+    /// 
+    /// Define custom features of the renderer using the provided setting structs and function.
+    /// </summary>
+    /// <param name="settings">The settings of the program.</param>
+    /// <param name="descriptorLayoutBuilderStage">Create the descriptor layout for your main shader.</param>
+    /// <param name="pipelineDescriptionStage">Create the graphics pipeline descriptor.</param>
+    /// <param name="loadingStage">A generic loading stage to load buffers.</param>
+    /// <param name="descriptorSetCreationStage">Define your descriptor sets.</param>
+    void AutoInitialize
+    (
+        VulkanAutoInitSettings settings,
+        std::function<void(Ptr(VulkanDescriptorLayout))> descriptorLayoutBuilderStage,
+        std::function<GraphicsPipelineDescriptor()> pipelineDescriptionStage,
+        std::function<void()> loadingStage,
+        std::function<void(Ptr(VulkanDescriptorSetBuilder))> descriptorSetCreationStage
+    );
+
+    // ------------------------------------------------------------------------------------------------------------------
+    // Frame Drawing Utilities
+    // ------------------------------------------------------------------------------------------------------------------
 
     /// <summary>
     /// Forward the start drawing command to the SwapChain.
@@ -143,13 +197,17 @@ public:
 
     void EndFrameDrawing(uint32_t currentImage)
     {
-        mSwapChain->EndFrameDrawing(graphicsQueue, *(mDefaultCommandPool->CommandBuffers()[mSwapChain->CurrentFrame()]), presentQueue, framebufferResized, currentImage);
+        mSwapChain->EndFrameDrawing(mDefaultGraphicsQueue, *(mDefaultCommandPool->CommandBuffers()[mSwapChain->CurrentFrame()]), mPresentQueue, framebufferResized, currentImage);
     }
 
     Ptr(VulkanCommandBuffer) GetFrameCommandBuffer()
     {
         return mDefaultCommandPool->CommandBuffers()[mSwapChain->CurrentFrame()];
     }
+
+    // ------------------------------------------------------------------------------------------------------------------
+    // Getters
+    // ------------------------------------------------------------------------------------------------------------------
 
     Ptr(VulkanGraphicsPipeline) PrimaryGraphicsPipeline()
     {
@@ -163,7 +221,7 @@ public:
 
     VkRenderPass RenderPass()
     {
-        return renderPass;
+        return mRenderPass;
     }
 
     Ptr(VulkanSwapChain) SwapChain()
@@ -171,58 +229,62 @@ public:
         return mSwapChain;
     }
 
+    // ------------------------------------------------------------------------------------------------------------------
+    // Cleanup the program
+    // ------------------------------------------------------------------------------------------------------------------
+
     // Cleanup the swap chain.
     void cleanupSwapChain() {
 
-        vkDestroyImageView(device, mSwapChain->DepthImageView(), nullptr);
-        vkDestroyImage(device, mSwapChain->DepthImage(), nullptr);
-        vkFreeMemory(device, mSwapChain->DepthImageMemory(), nullptr);
+        vkDestroyImageView(mDevice, mSwapChain->DepthImageView(), nullptr);
+        vkDestroyImage(mDevice, mSwapChain->DepthImage(), nullptr);
+        vkFreeMemory(mDevice, mSwapChain->DepthImageMemory(), nullptr);
 
         for (auto framebuffer : mSwapChain->FrameBuffers()) {
-            vkDestroyFramebuffer(device, framebuffer, nullptr);
+            vkDestroyFramebuffer(mDevice, framebuffer, nullptr);
         }
 
-        mDefaultCommandPool->FreeCommandBuffers(device);
+        mDefaultCommandPool->FreeCommandBuffers(mDevice);
 
         // Destroy the image views.
         for (auto imageView : mSwapChain->ImageViews()) {
-            vkDestroyImageView(device, imageView, nullptr);
+            vkDestroyImageView(mDevice, imageView, nullptr);
         }
 
         // Destroy the swap chain.
-        vkDestroySwapchainKHR(device, mSwapChain->SwapChain(), nullptr);
+        vkDestroySwapchainKHR(mDevice, mSwapChain->SwapChain(), nullptr);
 
-        vkDestroyDescriptorPool(device, mDescriptorHandler->BuiltDescriptorPool(), nullptr);
+        vkDestroyDescriptorPool(mDevice, mDescriptorHandler->BuiltDescriptorPool(), nullptr);
     }
 
     void cleanup() {
 
         cleanupSwapChain();
 
-        mGraphicsPipeline->CleanupPipeline(device);
-        vkDestroyRenderPass(device, renderPass, nullptr);
+        mGraphicsPipeline->CleanupPipeline(mDevice);
+        vkDestroyRenderPass(mDevice, mRenderPass, nullptr);
 
-        vkDestroyDescriptorSetLayout(device, mDescriptorHandler->Layout(), nullptr);
+        vkDestroyDescriptorSetLayout(mDevice, mDescriptorHandler->Layout(), nullptr);
 
             
 
         // Cleanup the syncronization objects for the frames.
         mSwapChain->CleanUp();
 
-        mDefaultCommandPool->DestroyCommandPool(device);
+        mDefaultCommandPool->DestroyCommandPool(mDevice);
 
         // Destroy the device.
-        vkDestroyDevice(device, nullptr);
+        vkDestroyDevice(mDevice, nullptr);
 
         if (enableValidationLayers) {
-            DestroyDebugUtilsMessengerEXT(instance, debugMessenger, nullptr);
+            DestroyDebugUtilsMessengerEXT(mInstance, mDebugMessenger, nullptr);
         }
 
-        vkDestroySurfaceKHR(instance, surface, nullptr);
-        vkDestroyInstance(instance, nullptr);
+        vkDestroySurfaceKHR(mInstance, mSurface, nullptr);
+        vkDestroyInstance(mInstance, nullptr);
 
         // Destroy and terminate the window.
-        glfwDestroyWindow(window);
+        glfwDestroyWindow(mWindow);
         glfwTerminate();
     }
 
@@ -253,7 +315,7 @@ public:
 
     void CreateBufferUtilities()
     {
-        mBufferUtilities = std::make_shared<VulkanBufferUtilities>(physicalDevice, device, mDefaultCommandPool->CommandPool(), graphicsQueue);
+        mBufferUtilities = std::make_shared<VulkanBufferUtilities>(mPhysicalDevice, mDevice, mDefaultCommandPool->CommandPool(), mDefaultGraphicsQueue);
     }
 
     // Recreate the swap chain when needed (like on window resize).
@@ -283,11 +345,13 @@ public:
 
     void CreateDefaultRenderCommandBuffers() {
         for (size_t i = 0; i < mSwapChain->FrameBuffers().size(); i++) {
-            auto commandBuffer = mDefaultCommandPool->CreateCommandBuffer(device);
+            auto commandBuffer = mDefaultCommandPool->CreateCommandBuffer(mDevice);
         }
     }
+// ------------------------------------------------------------------------------------------------------------------
+ private: // Private Methods
+// ------------------------------------------------------------------------------------------------------------------
 
-    private:
         // Load the vkCreateDebugUtilsMessengerEXT method since it is an extension.
         VkResult CreateDebugUtilsMessengerEXT(VkInstance instance, const VkDebugUtilsMessengerCreateInfoEXT* pCreateInfo, const VkAllocationCallbacks* pAllocator, VkDebugUtilsMessengerEXT* pDebugMessenger) {
             auto func = (PFN_vkCreateDebugUtilsMessengerEXT)vkGetInstanceProcAddr(instance, "vkCreateDebugUtilsMessengerEXT");
