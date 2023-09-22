@@ -320,7 +320,9 @@ void VulkanRenderer::CreateLogicalDevice(std::vector<VulkanQueueDescriptor> queu
     float queuePriority = 1.0f;
 
     uint32_t queueFamilyCount = 0;
+    vkGetPhysicalDeviceQueueFamilyProperties(mPhysicalDevice, &queueFamilyCount, nullptr);
     std::vector<VkQueueFamilyProperties> queueFamilies(queueFamilyCount);
+    std::vector<uint32_t> queueUsage(queueFamilyCount);
     vkGetPhysicalDeviceQueueFamilyProperties(mPhysicalDevice, &queueFamilyCount, queueFamilies.data());
 
     std::vector<VkDeviceQueueCreateInfo> queueCreateInfos;
