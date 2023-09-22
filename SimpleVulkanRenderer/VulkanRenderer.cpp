@@ -4,7 +4,8 @@
 namespace
 {
     // A GLFW callback for when the window is resized.
-    static void framebufferResizeCallback(GLFWwindow* window, int width, int height) {
+    static void framebufferResizeCallback(GLFWwindow* window, int width, int height)
+    {
         auto app = reinterpret_cast<VulkanRenderer*>(glfwGetWindowUserPointer(window));
         app->framebufferResized = true;
     }
@@ -20,7 +21,8 @@ namespace
         return VK_FALSE;
     }
 
-    void PopulateDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT& createInfo) {
+    void PopulateDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT& createInfo)
+    {
         createInfo = {};
         createInfo.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
         createInfo.messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
@@ -29,7 +31,8 @@ namespace
     }
 
     // Check if extensions are suppored for a sepecific physical device.
-    bool CheckDeviceExtensionSupport(VkPhysicalDevice device) {
+    bool CheckDeviceExtensionSupport(VkPhysicalDevice device)
+    {
         uint32_t extensionCount;
         vkEnumerateDeviceExtensionProperties(device, nullptr, &extensionCount, nullptr);
 
@@ -47,7 +50,8 @@ namespace
         return requiredExtensions.empty();
     }
 
-    QueueFamilyIndices FindQueueFamilies(VkPhysicalDevice device, VkSurfaceKHR surface) {
+    QueueFamilyIndices FindQueueFamilies(VkPhysicalDevice device, VkSurfaceKHR surface)
+    {
         QueueFamilyIndices indices;
 
         uint32_t queueFamilyCount = 0;
@@ -85,7 +89,8 @@ namespace
 
     // This checks to make sure that the Device can handle all of the
     // features that we use.
-    bool IsDeviceSuitable(VkPhysicalDevice device, VkSurfaceKHR surface) {
+    bool IsDeviceSuitable(VkPhysicalDevice device, VkSurfaceKHR surface)
+    {
         QueueFamilyIndices indicies = FindQueueFamilies(device, surface);
 
         bool extensionSupported = CheckDeviceExtensionSupport(device);
@@ -105,7 +110,8 @@ namespace
     }
 
     // Get the list of required extensions.
-    std::vector<const char*> getRequiredExtensions() {
+    std::vector<const char*> getRequiredExtensions()
+    {
         uint32_t glfwExtensionCount = 0;
         const char** glfwExtensions;
         glfwExtensions = glfwGetRequiredInstanceExtensions(&glfwExtensionCount);
@@ -118,9 +124,24 @@ namespace
 
         return extensions;
     }
+
+    std::vector<float> QueuePriorities(VulkanQueueType type, std::vector<VulkanQueueDescriptor>& queueDescriptors)
+    {
+        std::vector<float> priorities;
+        for (const auto& queueDescriptor : queueDescriptors)
+        {
+            if (queueDescriptor.Type == type)
+            {
+                priorities.push_back(queueDescriptor.Priority);
+            }
+        }
+
+        return priorities;
+    }
 }
 
-void VulkanRenderer::CreateGLFWWindow(int width, int height, std::string name) {
+void VulkanRenderer::CreateGLFWWindow(int width, int height, std::string name)
+{
 
     glfwInit();
     // NO OPENGL CONTEXT, WE USE VULKAN
@@ -213,7 +234,7 @@ void VulkanRenderer::AutoInitialize(VulkanAutoInitSettings settings, std::functi
     }
     CreateGLFWSurface();
     SelectPhysicalDevice();
-    CreateLogicalDevice();
+    CreateLogicalDevice(settings.CustomQueues);
     SetupSwapChain(settings.SwapChainDescriptor);
 
     mDescriptorHandler = std::make_shared<VulkanDescriptorLayout>(mDevice);
@@ -291,14 +312,25 @@ void VulkanRenderer::SelectPhysicalDevice()
 /// Throws a runtime error if a logical device cannot be created with
 /// the default requirements.
 /// </summary>
-void VulkanRenderer::CreateLogicalDevice()
+void VulkanRenderer::CreateLogicalDevice(std::vector<VulkanQueueDescriptor> queues)
 {
+    // Find and create the default queue for graphics and presentation.
     QueueFamilyIndices indices = FindQueueFamilies(mPhysicalDevice, mSurface);
+    std::set<uint32_t> uniqueQueueFamilies = { indices.graphicsFamily.value(), indices.presentFamily.value() };
+    float queuePriority = 1.0f;
+
+    uint32_t queueFamilyCount = 0;
+    std::vector<VkQueueFamilyProperties> queueFamilies(queueFamilyCount);
+    vkGetPhysicalDeviceQueueFamilyProperties(mPhysicalDevice, &queueFamilyCount, queueFamilies.data());
 
     std::vector<VkDeviceQueueCreateInfo> queueCreateInfos;
-    std::set<uint32_t> uniqueQueueFamilies = { indices.graphicsFamily.value(), indices.presentFamily.value() };
+    queueCreateInfos.resize(queueFamilyCount);
 
-    float queuePriority = 1.0f;
+    for (int i = 0; i < queueFamilyCount; i++)
+    {
+        queueUsage[i] = queueFamilies[i].queueCount;
+    }
+
     for (uint32_t queueFamily : uniqueQueueFamilies)
     {
         VkDeviceQueueCreateInfo queueCreateInfo{};
@@ -306,10 +338,49 @@ void VulkanRenderer::CreateLogicalDevice()
         queueCreateInfo.queueFamilyIndex = queueFamily;
         queueCreateInfo.queueCount = 1;
         queueCreateInfo.pQueuePriorities = &queuePriority;
-        queueCreateInfos.push_back(queueCreateInfo);
+        queueCreateInfos[queueFamily] = queueCreateInfo;
+        queueUsage[queueFamily] -= 1;
     }
 
-    // Define the device features. Theis was done using vkGetPhysicalDeviceFeatures
+    for (auto& vulkanQueue : queues)
+    {
+        for (int i = 0; i < queueFamilyCount; i++)
+        {
+            auto queueFamily = queueFamilies[i];
+            if (vulkanQueue.Type == COMPUTE_QUEUE && queueFamily.queueFlags & VK_QUEUE_COMPUTE_BIT)
+            {
+                if (queueUsage[i] > 0)
+                {
+                    if (uniqueQueueFamilies.find(i) == uniqueQueueFamilies.end())
+                    {
+                        VkDeviceQueueCreateInfo queueCreateInfo{};
+                        queueCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
+                        queueCreateInfo.queueFamilyIndex = i;
+                        queueCreateInfo.queueCount = 1;
+                        queueCreateInfo.pQueuePriorities = &queuePriority;
+                        queueCreateInfos[i] = queueCreateInfo;
+                    }
+                    else {
+                        queueCreateInfos[i].queueCount += 1;
+                    }
+                    vulkanQueue._QueueFamily = i;
+                    vulkanQueue._QueueIndex = queueFamily.queueCount - queueUsage[i];
+                    queueUsage[i] -= 1;
+                    uniqueQueueFamilies.insert(i);
+                    continue;
+                }
+            }
+        }
+        std::cout << "CRITICAL ERROR: Unable to find desire queue for creation!" << std::endl;
+    }
+
+    std::vector<VkDeviceQueueCreateInfo> finalQueueCreateInfos;
+    for (uint32_t queueFamily : uniqueQueueFamilies)
+    {
+        finalQueueCreateInfos.push_back(queueCreateInfos[queueFamily]);
+    }
+
+    // Define the device features. This was done using vkGetPhysicalDeviceFeatures
     VkPhysicalDeviceFeatures deviceFeatures{};
     // Ask for the the Anisotrpy feature for the texture image sampler.
     deviceFeatures.samplerAnisotropy = VK_TRUE;
@@ -318,8 +389,8 @@ void VulkanRenderer::CreateLogicalDevice()
     VkDeviceCreateInfo createInfo{};
     createInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
 
-    createInfo.pQueueCreateInfos = queueCreateInfos.data();
-    createInfo.queueCreateInfoCount = static_cast<uint32_t>(queueCreateInfos.size());
+    createInfo.pQueueCreateInfos = finalQueueCreateInfos.data();
+    createInfo.queueCreateInfoCount = static_cast<uint32_t>(finalQueueCreateInfos.size());
     createInfo.pEnabledFeatures = &deviceFeatures;
     // Enable extensions for the logical device
     createInfo.enabledExtensionCount = static_cast<uint32_t>(deviceExtensions.size());
@@ -343,8 +414,21 @@ void VulkanRenderer::CreateLogicalDevice()
         throw std::runtime_error("Failed to create logical deivce!");
     }
 
+    // Get the default queues
     vkGetDeviceQueue(mDevice, indices.graphicsFamily.value(), 0, &mDefaultGraphicsQueue);
     vkGetDeviceQueue(mDevice, indices.presentFamily.value(), 0, &mPresentQueue);
+
+    // Populate the queue map
+    for (auto queue : queues)
+    {
+        VkQueue vkQueue;
+        vkGetDeviceQueue(mDevice, queue._QueueFamily, queue._QueueIndex, &vkQueue);
+        VulkanQueue vulkanQueue;
+        vulkanQueue.queue = vkQueue;
+        vulkanQueue.QueueFamily = queue._QueueFamily;
+        vulkanQueue.QueueIndex = queue._QueueIndex;
+        mQueueMap[queue.Name] = vulkanQueue;
+    }
 }
 
 /// <summary>

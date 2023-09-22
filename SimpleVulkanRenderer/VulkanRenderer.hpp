@@ -26,6 +26,7 @@
 #include <stdlib.h>
 #include <time.h>
 #include <functional>
+#include <map>
 
 //#include "GreedyMesh.h"
 #include "VulkanRendererTypes.hpp"
@@ -71,6 +72,7 @@ struct VulkanAutoInitSettings
     int WindowHeight;
     std::string WindowName;
     bool SetupDebug;
+    std::vector<VulkanQueueDescriptor> CustomQueues;
     SwapChainDescriptor SwapChainDescriptor;
 };
 
@@ -121,6 +123,7 @@ public: // Public Member Variables
     // Default Queues
     VkQueue mDefaultGraphicsQueue;
     VkQueue mPresentQueue;
+    std::map<std::string, VulkanQueue> mQueueMap;
 
     // Default Rener Pass
     VkRenderPass mRenderPass;
@@ -154,12 +157,15 @@ public: // Public Methods
     void CreateVulkanInstance(VulkanInstanceInfo instanceInfo);
     void CreateGLFWSurface();
     void SelectPhysicalDevice();
-    void CreateLogicalDevice();
+    void CreateLogicalDevice(std::vector<VulkanQueueDescriptor> queues);
     void SetupSwapChain(const SwapChainDescriptor descriptor);
     void CreateRenderPass();
     void CreateGraphicsPipeline(const GraphicsPipelineDescriptor& descriptor);
     void CreateDefaultCommandPool(std::string identifier) {
         mDefaultCommandPool = std::make_shared<VulkanCommandPool>(mSurface, mPhysicalDevice, mDevice, identifier);
+    }
+    Ptr(VulkanCommandPool) CreateCommandPool(std::string identifier, VulkanQueue queue) {
+        return std::make_shared<VulkanCommandPool>(mSurface, mPhysicalDevice, mDevice, identifier, queue);
     }
     void SetupDebugMessenger();
 
@@ -227,6 +233,16 @@ public: // Public Methods
     Ptr(VulkanSwapChain) SwapChain()
     {
         return mSwapChain;
+    }
+
+    VkQueue GetNamedQueue(std::string name)
+    {
+        return mQueueMap[name].queue;
+    }
+
+    VulkanQueue GetNamedVulkanQueue(std::string name)
+    {
+        return mQueueMap[name];
     }
 
     // ------------------------------------------------------------------------------------------------------------------

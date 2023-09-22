@@ -16,6 +16,9 @@
 #include <stdlib.h>
 #include <time.h>
 
+#include <atomic>
+#include <thread>
+
 #include "VulkanRenderer.hpp"
 #include "VulkanVertexShader.hpp"
 #include "VulkanFragmentShader.hpp"
@@ -39,6 +42,8 @@ std::vector<Vertex> vertices;
 VkBuffer indexBuffer;
 VkDeviceMemory indexBufferMemory;
 std::vector<uint32_t> indices;
+
+VulkanQueue resourceLoadingQueue;
 
 // The struct for uniforms.
 struct UniformBufferObject {
@@ -109,8 +114,16 @@ std::vector<uint32_t> cubeIndices = {
             20, 21, 22, 22, 23, 20
 };
 
+// ========================= [ Multi Threading] ==================
+
+std::atomic_bool finishedLoadingChunk = false;
+std::thread chunkLoadingThread;
+
 // Load the model.
 void loadModel() {
+    std::this_thread::sleep_for(std::chrono::seconds(1));
+    std::cout << "Started load thread" << std::endl;
+    std::this_thread::sleep_for (std::chrono::seconds(5));
     srand(time(NULL));
     int*** chunkArray = new int** [8];
     for (int x = 0; x < 8; x++) {
@@ -133,7 +146,24 @@ void loadModel() {
 
     indices.reserve(indices.size() + output.indicies.size());
     indices.insert(indices.end(), output.indicies.begin(), output.indicies.end());
+
+    auto pool = renderer->CreateCommandPool("ResourceLoader", resourceLoadingQueue);
+
+    // Vertex Buffer
+    vertexBuffer = renderer->mBufferUtilities->CreateVertexBuffer(vertices, pool->CommandPool(), resourceLoadingQueue.queue);
+
+    // Index Buffer
+    renderer->mBufferUtilities->CreateIndexBuffer(indices, indexBuffer, indexBufferMemory, pool->CommandPool(), resourceLoadingQueue.queue);
+
+    finishedLoadingChunk = true;
+    std::cout << "Finished load thread" << std::endl;
 }
+
+void StartLoading() {
+    chunkLoadingThread = std::thread(loadModel);
+}
+
+// ========================= [ Multi Threading] ==================
 
 std::shared_ptr<VulkanVertexShader> CreateVertexShader(VkDevice device)
 {
@@ -156,12 +186,6 @@ std::shared_ptr<VulkanFragmentShader> CreateFragmentShader(VkDevice device)
 
 void SetupBuffers()
 {
-    // Vertex Buffer
-    vertexBuffer = renderer->mBufferUtilities->CreateVertexBuffer(cubeVertices);
-
-    // Index Buffer
-    renderer->mBufferUtilities->CreateIndexBuffer(cubeIndices, indexBuffer, indexBufferMemory);
-
     // Uniform Buffers
     VkDeviceSize bufferSize = sizeof(UniformBufferObject);
     mappedUniformBuffers = VulkanFrameObject<VulkanMappedBuffer>(2 /*Swapchain Size*/);
@@ -220,6 +244,12 @@ int main() {
     autoInitSettings.WindowHeight = HEIGHT;
     autoInitSettings.WindowWidth = WIDTH;
     autoInitSettings.WindowName = "Test Renderer Application";
+    
+    VulkanQueueDescriptor queueDescriptor;
+    queueDescriptor.Type = COMPUTE_QUEUE;
+    queueDescriptor.Priority = 0.7f;
+    queueDescriptor.Name = "ResourceLoadingQueue";
+    autoInitSettings.CustomQueues.push_back(queueDescriptor);
 
     renderer->AutoInitialize(
         autoInitSettings,
@@ -235,8 +265,13 @@ int main() {
             return pipeline;
         },
         []() { /* General Loading Stage */
-            loadModel();
+            //loadModel();
             SetupBuffers();
+
+            resourceLoadingQueue = renderer->GetNamedVulkanQueue("ResourceLoadingQueue");
+
+            // Start the Threading
+            StartLoading();
         },
         [](auto setBuilder) { /* Create the default descriptor sets for each framebuffer. */
             VulkanTexture texture("textures/texture.jpg", renderer, renderer->mBufferUtilities);
@@ -297,15 +332,27 @@ int main() {
         frameCommandBuffer->StartRenderPass(renderer->RenderPass(), renderer->SwapChain()->FrameBuffers()[currentImage], renderer->SwapChain()->Extent(), {164 / 255.0, 236 / 255.0, 252 / 255.0, 1.0});
         frameCommandBuffer->BindPipeline(renderer->PrimaryGraphicsPipeline()->Pipeline());
         frameCommandBuffer->SetViewportScissor(renderer->SwapChain()->Extent());
-        frameCommandBuffer->BindVertexBuffer(vertexBuffer);
-        frameCommandBuffer->BindIndexBuffer(indexBuffer);
-        frameCommandBuffer->BindDescriptorSet(renderer->PrimaryGraphicsPipeline()->PipelineLayout(), renderer->DescriptorHandler()->DescriptorSetBuilder()->GetBuiltDescriptorSets()[currentImage]);
-        frameCommandBuffer->DrawIndexed(cubeIndices.size());
+
+        // Check for if threads are done...
+        if (finishedLoadingChunk)
+        {
+            frameCommandBuffer->BindVertexBuffer(vertexBuffer);
+            frameCommandBuffer->BindIndexBuffer(indexBuffer);
+            frameCommandBuffer->BindDescriptorSet(renderer->PrimaryGraphicsPipeline()->PipelineLayout(), renderer->DescriptorHandler()->DescriptorSetBuilder()->GetBuiltDescriptorSets()[currentImage]);
+            frameCommandBuffer->DrawIndexed(indices.size());
+        }
+
         frameCommandBuffer->EndRenderPass();
         frameCommandBuffer->EndCommandRecording();
 
 
         renderer->EndFrameDrawing(currentImage);
+
+        
+        if (finishedLoadingChunk && chunkLoadingThread.joinable())
+        {
+            chunkLoadingThread.join();
+        }
     }
 
     vkDeviceWaitIdle(renderer->mDevice);

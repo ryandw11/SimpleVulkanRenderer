@@ -9,10 +9,36 @@
 #include <optional>
 #include <array>
 
+enum VulkanQueueType
+{
+    GRAPHICS_QUEUE,
+    COMPUTE_QUEUE
+};
+
 struct VulkanInstanceInfo
 {
 	std::string ApplicationName;
 	std::uint32_t ApplicationVersion;
+};
+
+/// <summary>
+/// Describe a queue that should be created.
+/// </summary>
+struct VulkanQueueDescriptor
+{
+    VulkanQueueType Type;
+    float Priority;
+    std::string Name;
+    // Internal Use Only
+    uint32_t _QueueFamily = 0;
+    uint32_t _QueueIndex = 0;
+};
+
+struct VulkanQueue
+{
+    VkQueue queue;
+    uint32_t QueueFamily;
+    uint32_t QueueIndex;
 };
 
 // The Queue families.

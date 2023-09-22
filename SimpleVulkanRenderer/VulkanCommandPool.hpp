@@ -4,8 +4,10 @@
 
 #include <string>
 #include <thread>
+#include <optional>
 
 #include "VulkanIncludes.hpp"
+#include "VulkanRendererTypes.hpp"
 
 class VulkanCommandBuffer;
 
@@ -13,7 +15,7 @@ class VulkanCommandBuffer;
 class VulkanCommandPool
 {
 public:
-	VulkanCommandPool(VkSurfaceKHR surface, VkPhysicalDevice physicalDevice, VkDevice device, std::string identifier);
+	VulkanCommandPool(VkSurfaceKHR surface, VkPhysicalDevice physicalDevice, VkDevice device, std::string identifier, std::optional<VulkanQueue> vulkanQueue = std::nullopt);
 
 	std::shared_ptr<VulkanCommandBuffer> CreateCommandBuffer(VkDevice device);
 
