@@ -48,7 +48,7 @@ void VulkanGraphicsPipeline::UpdatePipeline(VkDevice device, VkRenderPass render
     VkPipelineRasterizationStateCreateInfo rasterizer{};
     rasterizer.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
     // Clamp fragments beyond the near and far planes.
-    rasterizer.depthClampEnable = VK_FALSE;
+    rasterizer.depthClampEnable = VK_TRUE;
     // If set to true, the geometry will never pass through the rasterizer stage. This disables any output to the frame buffer.
     rasterizer.rasterizerDiscardEnable = VK_FALSE;
     // This determines how fragments are generated. There is also LINE (wireframe) and POINT. (Other modes than FILL require GPU Features)
