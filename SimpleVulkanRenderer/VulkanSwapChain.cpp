@@ -86,6 +86,9 @@ void VulkanSwapChain::InitializeSwapChain(GLFWwindow* window, VkSurfaceKHR surfa
     {
         imageCount = swapChainSupport.capabilities.maxImageCount;
     }
+    
+    //TODO:: Override image count to always be 2 until I fix the hard-coded dependencies
+    imageCount = 2;
 
     VkSwapchainCreateInfoKHR createInfo{};
     createInfo.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;

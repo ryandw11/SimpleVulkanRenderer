@@ -325,6 +325,8 @@ void VulkanRenderer::CreateLogicalDevice(std::vector<VulkanQueueDescriptor> queu
     std::vector<uint32_t> queueUsage(queueFamilyCount);
     vkGetPhysicalDeviceQueueFamilyProperties(mPhysicalDevice, &queueFamilyCount, queueFamilies.data());
 
+    std::vector<std::vector<float>> queuePriorities(queueFamilyCount);
+
     std::vector<VkDeviceQueueCreateInfo> queueCreateInfos;
     queueCreateInfos.resize(queueFamilyCount);
 
@@ -335,11 +337,12 @@ void VulkanRenderer::CreateLogicalDevice(std::vector<VulkanQueueDescriptor> queu
 
     for (uint32_t queueFamily : uniqueQueueFamilies)
     {
+        queuePriorities[queueFamily].push_back(1);
         VkDeviceQueueCreateInfo queueCreateInfo{};
         queueCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
         queueCreateInfo.queueFamilyIndex = queueFamily;
         queueCreateInfo.queueCount = 1;
-        queueCreateInfo.pQueuePriorities = &queuePriority;
+        queueCreateInfo.pQueuePriorities = queuePriorities[queueFamily].data();
         queueCreateInfos[queueFamily] = queueCreateInfo;
         queueUsage[queueFamily] -= 1;
     }
@@ -355,25 +358,30 @@ void VulkanRenderer::CreateLogicalDevice(std::vector<VulkanQueueDescriptor> queu
                 {
                     if (uniqueQueueFamilies.find(i) == uniqueQueueFamilies.end())
                     {
+                        queuePriorities[i].push_back(1);
                         VkDeviceQueueCreateInfo queueCreateInfo{};
                         queueCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
                         queueCreateInfo.queueFamilyIndex = i;
                         queueCreateInfo.queueCount = 1;
-                        queueCreateInfo.pQueuePriorities = &queuePriority;
+                        queueCreateInfo.pQueuePriorities = queuePriorities[i].data();
                         queueCreateInfos[i] = queueCreateInfo;
                     }
-                    else {
+                    else
+                    {
                         queueCreateInfos[i].queueCount += 1;
+                        queuePriorities[i].push_back(1);
+                        queueCreateInfos[i].pQueuePriorities = queuePriorities[i].data();
                     }
                     vulkanQueue._QueueFamily = i;
                     vulkanQueue._QueueIndex = queueFamily.queueCount - queueUsage[i];
                     queueUsage[i] -= 1;
                     uniqueQueueFamilies.insert(i);
-                    continue;
+                    goto outerloop; // Acts as a continue; for the outer loop.
                 }
             }
         }
         std::cout << "CRITICAL ERROR: Unable to find desire queue for creation!" << std::endl;
+    outerloop:;
     }
 
     std::vector<VkDeviceQueueCreateInfo> finalQueueCreateInfos;
