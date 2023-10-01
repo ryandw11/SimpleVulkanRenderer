@@ -25,6 +25,7 @@
 #include "VulkanTexture.hpp"
 #include "VulkanMappedBuffer.hpp"
 #include "GreedyMesh.h"
+#include "Camera.hpp"
 
 constexpr auto WIDTH = 800;
 constexpr auto HEIGHT = 600;
@@ -36,6 +37,9 @@ std::shared_ptr<VulkanRenderer> renderer;
     Scene Data
     =============================
 */
+Camera camera;
+
+
 VulkanBuffer vertexBuffer;
 std::vector<Vertex> vertices;
 
@@ -123,7 +127,7 @@ std::thread chunkLoadingThread;
 void loadModel() {
     std::this_thread::sleep_for(std::chrono::seconds(1));
     std::cout << "Started load thread" << std::endl;
-    std::this_thread::sleep_for (std::chrono::seconds(5));
+    std::this_thread::sleep_for (std::chrono::seconds(1));
     srand(time(NULL));
     int*** chunkArray = new int** [8];
     for (int x = 0; x < 8; x++) {
@@ -208,7 +212,8 @@ void UpdateUniformBuffer(uint32_t currentImage) {
     ubo.model = modelMatrix;
     //ubo.model = glm::rotate(modelMatrix, time * glm::radians(90.0f), glm::vec3(0.0f, 1.0f, 0.0f));
     // The view transformation. Loot at the geometry at a 45 degree angle.
-    ubo.view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+    //ubo.view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+    ubo.view = camera.GetViewMatrix();
     // 45 degree field of view for the projective.
     ubo.proj = glm::perspective(glm::radians(45.0f), renderer->mSwapChain->Extent().width / (float)renderer->mSwapChain->Extent().height, 0.1f, 10.0f);
 
@@ -284,7 +289,7 @@ int main() {
     modelMatrix = glm::mat4(1.0f);
     modelMatrix = glm::scale(modelMatrix, glm::vec3(0.5f, 0.5f, 0.5f));
     modelMatrix = glm::rotate(modelMatrix, (float)glm::radians(90.0f), glm::vec3(1.0f, 0.0f, 0.0f));
-    modelMatrix = glm::translate(modelMatrix, glm::vec3(0.0f, -1.0f, 0.0f));
+    modelMatrix = glm::translate(modelMatrix, glm::vec3(-5.0f, -1.0f, -5));
 
     // Keep track of the last loop time.
     auto lastLoopTime = std::chrono::duration_cast<std::chrono::nanoseconds> (std::chrono::system_clock::now().time_since_epoch()).count() / 1000000000.0;
@@ -303,13 +308,23 @@ int main() {
         // If the left key is press, rotate the object left.
         int leftKeyState = glfwGetKey(renderer->mWindow, GLFW_KEY_LEFT);
         if (leftKeyState == GLFW_PRESS) {
-            modelMatrix = glm::rotate(modelMatrix, deltaTime * glm::radians(90.0f), glm::vec3(0.0f, -1.0f, 0.0f));
+            //modelMatrix = glm::rotate(modelMatrix, deltaTime * glm::radians(90.0f), glm::vec3(0.0f, -1.0f, 0.0f));
+            camera.MoveLeft(2.5 * deltaTime);
         }
 
         // If the right key is pressed, rotate the object right.
         int rightKeyState = glfwGetKey(renderer->mWindow, GLFW_KEY_RIGHT);
         if (rightKeyState == GLFW_PRESS) {
-           modelMatrix = glm::rotate(modelMatrix, deltaTime * glm::radians(90.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+           //modelMatrix = glm::rotate(modelMatrix, deltaTime * glm::radians(90.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+            camera.MoveRight(2.5 * deltaTime);
+        }
+
+        if (glfwGetKey(renderer->mWindow, GLFW_KEY_UP) == GLFW_PRESS) {
+            camera.MoveForward(2.5 * deltaTime);
+        }
+
+        if (glfwGetKey(renderer->mWindow, GLFW_KEY_DOWN) == GLFW_PRESS) {
+            camera.MoveBackward(2.5 * deltaTime);
         }
 
         // If the right key is pressed, rotate the object right.
@@ -317,9 +332,6 @@ int main() {
         if (shiftKeyState == GLFW_PRESS) {
             modelMatrix = glm::translate(modelMatrix, glm::vec3(0, -1 * deltaTime, 0));
         }
-
-        modelMatrix = glm::rotate(modelMatrix, deltaTime * glm::radians(90.0f), glm::vec3(0.0f, 1.0f, 0.0f));
-        modelMatrix = glm::rotate(modelMatrix, deltaTime * glm::radians(90.0f), glm::vec3(1.0f, 0.0f, 0.0f));
 
         auto currentImage = renderer->StartFrameDrawing();
 

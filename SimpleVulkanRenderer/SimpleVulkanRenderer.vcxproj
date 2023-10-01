@@ -156,6 +156,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="Camera.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="VulkanBuffer.cpp" />
     <ClCompile Include="VulkanBufferUtilities.cpp" />
@@ -173,6 +174,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="3DArray.h" />
+    <ClInclude Include="Camera.hpp" />
     <ClInclude Include="GreedyMesh.h" />
     <ClInclude Include="Node.h" />
     <ClInclude Include="Queue.h" />
