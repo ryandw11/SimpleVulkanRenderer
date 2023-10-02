@@ -30,6 +30,8 @@ public:
 	/// <param name="offset">The offset of the attribute</param>
 	void VertexAttribute(uint32_t binding, uint32_t location, VkFormat format = VK_FORMAT_R32G32B32_SFLOAT, uint32_t offset = 0);
 
+	void VertexAttributeMatrix4f(uint32_t binding, uint32_t location);
+
 	/// <summary>
 	/// Define a uniform binding for the shader.
 	/// </summary>

@@ -21,8 +21,8 @@ public:
 	// Binds
 	// ---------------------------------------------------
 	void BindPipeline(VkPipeline pipeline, VkPipelineBindPoint bindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS);
-	void BindVertexBuffer(VkBuffer buffer, VkDeviceSize offset = 0);
-	void BindVertexBuffers(VkBuffer buffers[], VkDeviceSize offsets[], uint32_t bufferCount);
+	void BindVertexBuffer(VkBuffer buffer, VkDeviceSize offset = 0, uint32_t firstBinding = 0);
+	void BindVertexBuffers(VkBuffer buffers[], VkDeviceSize offsets[], uint32_t bufferCount, uint32_t firstBinding = 0);
 	void BindIndexBuffer(VkBuffer indexBuffer, VkDeviceSize offset = 0, VkIndexType indexType = VK_INDEX_TYPE_UINT32);
 	void BindDescriptorSet(VkPipelineLayout pipelineLayout, VkDescriptorSet descriptorSet, VkPipelineBindPoint bindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS);
 	// ---------------------------------------------------

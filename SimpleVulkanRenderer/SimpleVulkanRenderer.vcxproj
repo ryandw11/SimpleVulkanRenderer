@@ -157,6 +157,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="Camera.cpp" />
+    <ClCompile Include="Chunk.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="VulkanBuffer.cpp" />
     <ClCompile Include="VulkanBufferUtilities.cpp" />
@@ -175,7 +176,9 @@
   <ItemGroup>
     <ClInclude Include="3DArray.h" />
     <ClInclude Include="Camera.hpp" />
-    <ClInclude Include="GreedyMesh.h" />
+    <ClInclude Include="Chunk.hpp" />
+    <ClInclude Include="DemoConsts.hpp" />
+    <ClInclude Include="GreedyMesh.hpp" />
     <ClInclude Include="Node.h" />
     <ClInclude Include="Queue.h" />
     <ClInclude Include="VulkanBuffer.hpp" />
@@ -183,6 +186,7 @@
     <ClInclude Include="VulkanCommandBuffer.hpp" />
     <ClInclude Include="VulkanCommandPool.hpp" />
     <ClInclude Include="VulkanDescriptorLayout.hpp" />
+    <ClInclude Include="VulkanDescriptorPool.hpp" />
     <ClInclude Include="VulkanDescriptorSetBuilder.hpp" />
     <ClInclude Include="VulkanFragmentShader.hpp" />
     <ClInclude Include="VulkanFrameObject.hpp" />

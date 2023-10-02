@@ -65,16 +65,16 @@ void VulkanCommandBuffer::BindPipeline(VkPipeline pipeline, VkPipelineBindPoint 
 	vkCmdBindPipeline(mCommandBuffer, bindPoint, pipeline);
 }
 
-void VulkanCommandBuffer::BindVertexBuffer(VkBuffer buffer, VkDeviceSize offset)
+void VulkanCommandBuffer::BindVertexBuffer(VkBuffer buffer, VkDeviceSize offset, uint32_t firstBinding)
 {
 	VkBuffer vertexBuffers[] = { buffer };
 	VkDeviceSize offsets[] = { 0 };
-	BindVertexBuffers(vertexBuffers, offsets, 1);
+	BindVertexBuffers(vertexBuffers, offsets, 1, firstBinding);
 }
 
-void VulkanCommandBuffer::BindVertexBuffers(VkBuffer buffers[], VkDeviceSize offsets[], uint32_t bufferCount)
+void VulkanCommandBuffer::BindVertexBuffers(VkBuffer buffers[], VkDeviceSize offsets[], uint32_t bufferCount, uint32_t firstBinding)
 {
-	vkCmdBindVertexBuffers(mCommandBuffer, 0, bufferCount, buffers, offsets);
+	vkCmdBindVertexBuffers(mCommandBuffer, firstBinding, bufferCount, buffers, offsets);
 }
 
 void VulkanCommandBuffer::BindIndexBuffer(VkBuffer indexBuffer, VkDeviceSize offset, VkIndexType indexType)

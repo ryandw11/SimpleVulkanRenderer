@@ -22,6 +22,9 @@
     <ClCompile Include="Camera.cpp">
       <Filter>Demo</Filter>
     </ClCompile>
+    <ClCompile Include="Chunk.cpp">
+      <Filter>Demo</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="VulkanRenderer.hpp">
@@ -84,7 +87,7 @@
     <ClInclude Include="3DArray.h">
       <Filter>Demo</Filter>
     </ClInclude>
-    <ClInclude Include="GreedyMesh.h">
+    <ClInclude Include="GreedyMesh.hpp">
       <Filter>Demo</Filter>
     </ClInclude>
     <ClInclude Include="Node.h">
@@ -96,6 +99,13 @@
     <ClInclude Include="Camera.hpp">
       <Filter>Demo</Filter>
     </ClInclude>
+    <ClInclude Include="Chunk.hpp">
+      <Filter>Demo</Filter>
+    </ClInclude>
+    <ClInclude Include="VulkanDescriptorPool.hpp">
+      <Filter>Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="DemoConsts.hpp" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="Headers">

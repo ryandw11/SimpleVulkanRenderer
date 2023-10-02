@@ -73,6 +73,20 @@ void VulkanVertexShader::VertexAttribute(uint32_t binding, uint32_t location, Vk
     attributes.push_back(attribute);
 }
 
+void VulkanVertexShader::VertexAttributeMatrix4f(uint32_t binding, uint32_t location)
+{
+    for (int i = 0; i < 4; i++)
+    {
+        VkVertexInputAttributeDescription attribute{};
+        attribute.binding = binding;
+        attribute.location = location + i;
+        attribute.format = VK_FORMAT_R32G32B32A32_SFLOAT;
+        attribute.offset = i * sizeof(glm::vec4);
+
+        attributes.push_back(attribute);
+    }
+}
+
 void VulkanVertexShader::VertexUniformBinding(uint32_t bindingNumber, uint32_t stride, VkVertexInputRate inputRate)
 {
     VkVertexInputBindingDescription binding{};

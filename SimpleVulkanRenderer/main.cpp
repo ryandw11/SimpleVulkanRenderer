@@ -24,8 +24,10 @@
 #include "VulkanFragmentShader.hpp"
 #include "VulkanTexture.hpp"
 #include "VulkanMappedBuffer.hpp"
-#include "GreedyMesh.h"
 #include "Camera.hpp"
+#include "Chunk.hpp"
+
+#include "DemoConsts.hpp"
 
 constexpr auto WIDTH = 800;
 constexpr auto HEIGHT = 600;
@@ -38,7 +40,7 @@ std::shared_ptr<VulkanRenderer> renderer;
     =============================
 */
 Camera camera;
-
+std::vector<Ptr(Chunk)> chunks;
 
 VulkanBuffer vertexBuffer;
 std::vector<Vertex> vertices;
@@ -46,6 +48,8 @@ std::vector<Vertex> vertices;
 VkBuffer indexBuffer;
 VkDeviceMemory indexBufferMemory;
 std::vector<uint32_t> indices;
+
+VulkanMappedBuffer modelMatrixBuffer;
 
 VulkanQueue resourceLoadingQueue;
 
@@ -118,13 +122,17 @@ std::vector<uint32_t> cubeIndices = {
             20, 21, 22, 22, 23, 20
 };
 
+// ========================= [ Chunk Demo Settings ] ==================
+constexpr auto NUMBER_OF_CHUNKS = 2;
+
 // ========================= [ Multi Threading] ==================
 
 std::atomic_bool finishedLoadingChunk = false;
+std::atomic_bool finishedLoadingChunk2 = false;
 std::thread chunkLoadingThread;
 
 // Load the model.
-void loadModel() {
+/*void loadModel() {
     std::this_thread::sleep_for(std::chrono::seconds(1));
     std::cout << "Started load thread" << std::endl;
     std::this_thread::sleep_for (std::chrono::seconds(1));
@@ -161,10 +169,34 @@ void loadModel() {
 
     finishedLoadingChunk = true;
     std::cout << "Finished load thread" << std::endl;
+}*/
+
+void PopulateChunks(int sx, int sy, int sz)
+{
+    for (int x = 0; x < sx; x++)
+    {
+        for (int y = 0; y < sy; y++)
+        {
+            for (int z = 0; z < sz; z++)
+            {
+                chunks.push_back(std::make_shared<Chunk>(glm::vec3( x * CHUNK_VOXEL_COUNT, y * CHUNK_VOXEL_COUNT, z * CHUNK_VOXEL_COUNT)));
+            }
+        }
+    }
+}
+
+void LoadChunks()
+{
+    auto pool = renderer->CreateCommandPool("ResourceLoader", resourceLoadingQueue);
+
+    for (auto& chunk : chunks)
+    {
+        chunk->GenerateChunk(renderer->mBufferUtilities, pool, resourceLoadingQueue);
+    }
 }
 
 void StartLoading() {
-    chunkLoadingThread = std::thread(loadModel);
+    chunkLoadingThread = std::thread(LoadChunks);
 }
 
 // ========================= [ Multi Threading] ==================
@@ -175,8 +207,10 @@ std::shared_ptr<VulkanVertexShader> CreateVertexShader(VkDevice device)
     vertexShader->VertexAttribute(0, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(Vertex, Vertex::pos));
     vertexShader->VertexAttribute(0, 1, VK_FORMAT_R32G32B32_SFLOAT, offsetof(Vertex, Vertex::color));
     vertexShader->VertexAttribute(0, 2, VK_FORMAT_R32G32_SFLOAT, offsetof(Vertex, Vertex::texCoord));
+    vertexShader->VertexAttributeMatrix4f(1, 3);
     
     vertexShader->VertexUniformBinding(0, sizeof(Vertex));
+    vertexShader->VertexUniformBinding(1, sizeof(glm::mat4), VK_VERTEX_INPUT_RATE_INSTANCE);
 
     return vertexShader;
 }
@@ -190,6 +224,9 @@ std::shared_ptr<VulkanFragmentShader> CreateFragmentShader(VkDevice device)
 
 void SetupBuffers()
 {
+    // Model Matrix Buffer
+    renderer->mBufferUtilities->CreateBuffer(sizeof(glm::mat4) * 2, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, modelMatrixBuffer, modelMatrixBuffer);
+    renderer->mBufferUtilities->MapMemory(modelMatrixBuffer, 0, sizeof(glm::mat4) * 2, 0, modelMatrixBuffer.DirectMappedMemory());
     // Uniform Buffers
     VkDeviceSize bufferSize = sizeof(UniformBufferObject);
     mappedUniformBuffers = VulkanFrameObject<VulkanMappedBuffer>(2 /*Swapchain Size*/);
@@ -206,6 +243,17 @@ void UpdateUniformBuffer(uint32_t currentImage) {
     // The delta time in seconds.
     float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
 
+    for (int i = 0; i < chunks.size(); i++)
+    {
+        if (chunks[i]->FinishedGenerating())
+        {
+            glm::mat4 chunkModelMatrix = glm::translate(modelMatrix, chunks[i]->Location());
+            //modelMatrices[i] = glm::mat4(1.0f);
+            //modelMatrices[i] = modelMatrix;
+            memcpy(chunks[i]->ModelBuffer().MappedMemory(), &chunkModelMatrix, sizeof(glm::mat4));
+        }
+    }
+
     UniformBufferObject ubo{};
     // Create the model matrix.
     // This rotates the model on the Z-Axis, accounting for the deltaTime.
@@ -215,14 +263,13 @@ void UpdateUniformBuffer(uint32_t currentImage) {
     //ubo.view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
     ubo.view = camera.GetViewMatrix();
     // 45 degree field of view for the projective.
-    ubo.proj = glm::perspective(glm::radians(45.0f), renderer->mSwapChain->Extent().width / (float)renderer->mSwapChain->Extent().height, 0.1f, 10.0f);
+    ubo.proj = glm::perspective(glm::radians(45.0f), renderer->mSwapChain->Extent().width / (float)renderer->mSwapChain->Extent().height, 0.1f, 100.0f);
 
     // Since GLM was desinged for OpenGL (which has its Y coordinate inverted) we need to flip the Y value in the project matrix.
     ubo.proj[1][1] *= -1;
 
     // Copy the data in the uniform buffer object to the current uniform buffer.
     memcpy(mappedUniformBuffers[currentImage].MappedMemory(), &ubo, sizeof(ubo));
-
 }
 
 
@@ -232,6 +279,7 @@ void CleanUpBuffers()
     vkFreeMemory(renderer->mDevice, indexBufferMemory, nullptr);
 
     vertexBuffer.DestoryBuffer(renderer->mDevice);
+    modelMatrixBuffer.DestoryBuffer(renderer->mDevice);
 
     for (int i = 0; i < 2; i++)
     {
@@ -240,6 +288,10 @@ void CleanUpBuffers()
 }
 
 int main() {
+    srand(time(NULL));
+
+    PopulateChunks(10, 10, 10);
+
     renderer = std::make_shared<VulkanRenderer>();
 
     VulkanAutoInitSettings autoInitSettings;
@@ -288,8 +340,8 @@ int main() {
     // Main Loop::
     modelMatrix = glm::mat4(1.0f);
     modelMatrix = glm::scale(modelMatrix, glm::vec3(0.5f, 0.5f, 0.5f));
-    modelMatrix = glm::rotate(modelMatrix, (float)glm::radians(90.0f), glm::vec3(1.0f, 0.0f, 0.0f));
-    modelMatrix = glm::translate(modelMatrix, glm::vec3(-5.0f, -1.0f, -5));
+    modelMatrix = glm::rotate(modelMatrix, (float)glm::radians(90.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+    modelMatrix = glm::translate(modelMatrix, glm::vec3(-5.0f, -6 * CHUNK_VOXEL_COUNT, -5));
 
     // Keep track of the last loop time.
     auto lastLoopTime = std::chrono::duration_cast<std::chrono::nanoseconds> (std::chrono::system_clock::now().time_since_epoch()).count() / 1000000000.0;
@@ -345,13 +397,20 @@ int main() {
         frameCommandBuffer->BindPipeline(renderer->PrimaryGraphicsPipeline()->Pipeline());
         frameCommandBuffer->SetViewportScissor(renderer->SwapChain()->Extent());
 
-        // Check for if threads are done...
-        if (finishedLoadingChunk)
+        int finishedCount = 0;
+
+        for (auto& chunk : chunks)
         {
-            frameCommandBuffer->BindVertexBuffer(vertexBuffer);
-            frameCommandBuffer->BindIndexBuffer(indexBuffer);
-            frameCommandBuffer->BindDescriptorSet(renderer->PrimaryGraphicsPipeline()->PipelineLayout(), renderer->DescriptorHandler()->DescriptorSetBuilder()->GetBuiltDescriptorSets()[currentImage]);
-            frameCommandBuffer->DrawIndexed(indices.size());
+            if (chunk->FinishedGenerating())
+            {
+                frameCommandBuffer->BindVertexBuffer(chunk->VertexBuffer());
+                frameCommandBuffer->BindIndexBuffer(chunk->IndexBuffer());
+                frameCommandBuffer->BindVertexBuffer(chunk->ModelBuffer(), 0, 1); // Bind matrix buffer.
+                frameCommandBuffer->BindDescriptorSet(renderer->PrimaryGraphicsPipeline()->PipelineLayout(), renderer->DescriptorHandler()->DescriptorSetBuilder()->GetBuiltDescriptorSets()[currentImage]);
+                frameCommandBuffer->DrawIndexed(chunk->IndiciesSize());
+                
+                finishedCount++;
+            }
         }
 
         frameCommandBuffer->EndRenderPass();
@@ -361,7 +420,7 @@ int main() {
         renderer->EndFrameDrawing(currentImage);
 
         
-        if (finishedLoadingChunk && chunkLoadingThread.joinable())
+        if (finishedCount >= chunks.size() && chunkLoadingThread.joinable())
         {
             chunkLoadingThread.join();
         }
