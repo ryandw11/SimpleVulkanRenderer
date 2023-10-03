@@ -2,6 +2,10 @@
 #include "GreedyMesh.hpp"
 #include "DemoConsts.hpp"
 
+#include "PerlinNoise.hpp"
+
+const siv::PerlinNoise perlin{ 123456u };
+
 
 Chunk::Chunk()
     :
@@ -25,7 +29,12 @@ void Chunk::GenerateChunk(Ptr(VulkanBufferUtilities) bufferUtils, Ptr(VulkanComm
         for (int y = 0; y < CHUNK_VOXEL_COUNT; y++) {
             chunkArray[x][y] = new int[CHUNK_VOXEL_COUNT];
             for (int z = 0; z < CHUNK_VOXEL_COUNT; z++) {
-                chunkArray[x][y][z] = rand() % 2;
+                double noise = perlin.octave2D_01(((mLocation.x + x) * 0.01), ((mLocation.z + z) * 0.01), 4);
+                noise *= 2 * CHUNK_VOXEL_COUNT;
+                if(mLocation.y + y > noise)
+                    chunkArray[x][y][z] = /*rand() % 2*/ 0;
+                else
+                    chunkArray[x][y][z] = /*rand() % 2*/ 1;
             }
         }
     }
@@ -37,6 +46,12 @@ void Chunk::GenerateChunk(Ptr(VulkanBufferUtilities) bufferUtils, Ptr(VulkanComm
 
     mIndices.reserve(mIndices.size() + output.indicies.size());
     mIndices.insert(mIndices.end(), output.indicies.begin(), output.indicies.end());
+
+    if (mIndices.empty())
+    {
+        mFinishedGenerating = true;
+        return;
+    }
 
     // Vertex Buffer
     mVertexBuffer = bufferUtils->CreateVertexBuffer(mVertices, commandPool->CommandPool(), queue.queue);

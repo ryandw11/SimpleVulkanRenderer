@@ -8,12 +8,14 @@
 class Camera {
 public:
 	Camera();
+	void SetupCamera(GLFWwindow* window);
 
 	glm::mat4 GetViewMatrix();
 	void MoveForward(float speed);
 	void MoveBackward(float speed);
 	void MoveLeft(float speed);
 	void MoveRight(float speed);
+	void mouse_callback(GLFWwindow* window, double xposIn, double yposIn);
 
 private:
 	glm::vec3 mPos;
@@ -22,6 +24,12 @@ private:
 	float mYaw;
 	float mPitch;
 	float mFov;
+
+	// Mouse Controls:
+	bool mFirstMouse;
+	float mLastX;
+	float mLastY;
+
 };
 
 #endif

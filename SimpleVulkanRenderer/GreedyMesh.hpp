@@ -30,6 +30,9 @@ struct AlgorithmOutput {
 #define ONE_THIRD (1/3)
 #define TWO_THIRD (2/3)
 
+constexpr auto GREEN = glm::vec3(0, 0.75, 0);
+constexpr auto BROWN = glm::vec3(0.588, 0.31, 0.008);
+
 /**
     Add the front face of a voxel to the output. O(1)
 
@@ -40,19 +43,19 @@ struct AlgorithmOutput {
 void getFront(glm::vec3 position, AlgorithmOutput& output, int i) {
     Vertex v1;
     v1.pos = glm::vec3(-0.5f + position.x, 0.5f + position.y, 0.5f + position.z);
-    v1.color = glm::vec3(1, 1, 1);
+    v1.color = BROWN;
     v1.texCoord = glm::vec2(1, 1);
     Vertex v2;
     v2.pos = glm::vec3(-0.5f + position.x, -0.5f + position.y, 0.5f + position.z);
-    v2.color = glm::vec3(1, 1, 1);
+    v2.color = BROWN;
     v2.texCoord = glm::vec2(1, 1);
     Vertex v3;
     v3.pos = glm::vec3(0.5f + position.x, -0.5f + position.y, 0.5f + position.z);
-    v3.color = glm::vec3(1, 1, 1);
+    v3.color = BROWN;
     v3.texCoord = glm::vec2(1, 1);
     Vertex v4;
     v4.pos = glm::vec3(0.5f + position.x, 0.5f + position.y, 0.5f + position.z);
-    v4.color = glm::vec3(1, 1, 1);
+    v4.color = BROWN;
     v4.texCoord = glm::vec2(1, 1);
 
     output.verticies.push_back(v1);
@@ -77,19 +80,19 @@ void getFront(glm::vec3 position, AlgorithmOutput& output, int i) {
 void getBack(glm::vec3 pos, AlgorithmOutput& output, int i) {
     Vertex v1;
     v1.pos = glm::vec3(-0.5f + pos.x, 0.5f + pos.y, -0.5f + pos.z);
-    v1.color = glm::vec3(1, 1, 1);
+    v1.color = BROWN;
     v1.texCoord = glm::vec2(0, 0);
     Vertex v2;
     v2.pos = glm::vec3(-0.5f + pos.x, -0.5f + pos.y, -0.5f + pos.z);
-    v2.color = glm::vec3(1, 1, 1);
+    v2.color = BROWN;
     v2.texCoord = glm::vec2(1, 1);
     Vertex v3;
     v3.pos = glm::vec3(0.5f + pos.x, -0.5f + pos.y, -0.5f + pos.z);
-    v3.color = glm::vec3(1, 1, 1);
+    v3.color = BROWN;
     v3.texCoord = glm::vec2(0, 1);
     Vertex v4;
     v4.pos = glm::vec3(0.5f + pos.x, 0.5f + pos.y, -0.5f + pos.z);
-    v4.color = glm::vec3(1, 1, 1);
+    v4.color = BROWN;
     v4.texCoord = glm::vec2(1, 0);
 
     output.verticies.push_back(v1);
@@ -114,19 +117,19 @@ void getBack(glm::vec3 pos, AlgorithmOutput& output, int i) {
 void getTop(glm::vec3 pos, AlgorithmOutput& output, int i) {
     Vertex v1;
     v1.pos = glm::vec3(-0.5f + pos.x, 0.5f + pos.y, -0.5f + pos.z);
-    v1.color = glm::vec3(1, 1, 1);
+    v1.color = GREEN;
     v1.texCoord = glm::vec2(0, 0);
     Vertex v2;
     v2.pos = glm::vec3(-0.5f + pos.x, 0.5f + pos.y, 0.5f + pos.z);
-    v2.color = glm::vec3(1, 1, 1);
+    v2.color = GREEN;
     v2.texCoord = glm::vec2(1, 1);
     Vertex v3;
     v3.pos = glm::vec3(0.5f + pos.x, 0.5f + pos.y, 0.5f + pos.z);
-    v3.color = glm::vec3(1, 1, 1);
+    v3.color = GREEN;
     v3.texCoord = glm::vec2(1, 0);
     Vertex v4;
     v4.pos = glm::vec3(0.5f + pos.x, 0.5f + pos.y, -0.5f + pos.z);
-    v4.color = glm::vec3(1, 1, 1);
+    v4.color = GREEN;
     v4.texCoord = glm::vec2(0, 1);
 
     output.verticies.push_back(v1);
@@ -151,19 +154,19 @@ void getTop(glm::vec3 pos, AlgorithmOutput& output, int i) {
 void getBottom(glm::vec3 pos, AlgorithmOutput& output, int i) {
     Vertex v1;
     v1.pos = glm::vec3(-0.5f + pos.x, -0.5f + pos.y, -0.5f + pos.z);
-    v1.color = glm::vec3(1, 1, 1);
+    v1.color = BROWN;
     v1.texCoord = glm::vec2(0, 0);
     Vertex v2;
     v2.pos = glm::vec3(-0.5f + pos.x, -0.5f + pos.y, 0.5f + pos.z);
-    v2.color = glm::vec3(1, 1, 1);
+    v2.color = BROWN;
     v2.texCoord = glm::vec2(1, 0);
     Vertex v3;
     v3.pos = glm::vec3(0.5f + pos.x, -0.5f + pos.y, 0.5f + pos.z);
-    v3.color = glm::vec3(1, 1, 1);
+    v3.color = BROWN;
     v3.texCoord = glm::vec2(0, 1);
     Vertex v4;
     v4.pos = glm::vec3(0.5f + pos.x, -0.5f + pos.y, -0.5f + pos.z);
-    v4.color = glm::vec3(1, 1, 1);
+    v4.color = BROWN;
     v4.texCoord = glm::vec2(1, 1);
 
     output.verticies.push_back(v1);
@@ -188,19 +191,19 @@ void getBottom(glm::vec3 pos, AlgorithmOutput& output, int i) {
 void getRight(glm::vec3 pos, AlgorithmOutput& output, int i) {
     Vertex v1;
     v1.pos = glm::vec3(0.5f + pos.x, 0.5f + pos.y, 0.5f + pos.z);
-    v1.color = glm::vec3(1, 1, 1);
+    v1.color = BROWN;
     v1.texCoord = glm::vec2(0, 0);
     Vertex v2;
     v2.pos = glm::vec3(0.5f + pos.x, -0.5f + pos.y, 0.5f + pos.z);
-    v2.color = glm::vec3(1, 1, 1);
+    v2.color = BROWN;
     v2.texCoord = glm::vec2(0, 1);
     Vertex v3;
     v3.pos = glm::vec3(0.5f + pos.x, -0.5f + pos.y, -0.5f + pos.z);
-    v3.color = glm::vec3(1, 1, 1);
+    v3.color = BROWN;
     v3.texCoord = glm::vec2(1, 0);
     Vertex v4;
     v4.pos = glm::vec3(0.5f + pos.x, 0.5f + pos.y, -0.5f + pos.z);
-    v4.color = glm::vec3(1, 1, 1);
+    v4.color = BROWN;
     v4.texCoord = glm::vec2(1, 1);
 
     output.verticies.push_back(v1);
@@ -225,19 +228,19 @@ void getRight(glm::vec3 pos, AlgorithmOutput& output, int i) {
 void getLeft(glm::vec3 pos, AlgorithmOutput& output, int i) {
     Vertex v1;
     v1.pos = glm::vec3(-0.5f + pos.x, 0.5f + pos.y, -0.5f + pos.z);
-    v1.color = glm::vec3(1, 1, 1);
+    v1.color = BROWN;
     v1.texCoord = glm::vec2(0, 0);
     Vertex v2;
     v2.pos = glm::vec3(-0.5f + pos.x, -0.5f + pos.y, -0.5f + pos.z);
-    v2.color = glm::vec3(1, 1, 1);
+    v2.color = BROWN;
     v2.texCoord = glm::vec2(0, 1);
     Vertex v3;
     v3.pos = glm::vec3(-0.5f + pos.x, -0.5f + pos.y, 0.5f + pos.z);
-    v3.color = glm::vec3(1, 1, 1);
+    v3.color = BROWN;
     v3.texCoord = glm::vec2(1, 0);
     Vertex v4;
     v4.pos = glm::vec3(-0.5f + pos.x, 0.5f + pos.y, 0.5f + pos.z);
-    v4.color = glm::vec3(1, 1, 1);
+    v4.color = BROWN;
     v4.texCoord = glm::vec2(1, 1);
 
     output.verticies.push_back(v1);

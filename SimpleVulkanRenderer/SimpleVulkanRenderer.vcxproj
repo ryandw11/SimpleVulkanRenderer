@@ -180,6 +180,7 @@
     <ClInclude Include="DemoConsts.hpp" />
     <ClInclude Include="GreedyMesh.hpp" />
     <ClInclude Include="Node.h" />
+    <ClInclude Include="PerlinNoise.hpp" />
     <ClInclude Include="Queue.h" />
     <ClInclude Include="VulkanBuffer.hpp" />
     <ClInclude Include="VulkanBufferUtilities.hpp" />

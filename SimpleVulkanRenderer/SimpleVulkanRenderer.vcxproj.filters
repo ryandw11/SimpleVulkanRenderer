@@ -106,6 +106,7 @@
       <Filter>Headers</Filter>
     </ClInclude>
     <ClInclude Include="DemoConsts.hpp" />
+    <ClInclude Include="PerlinNoise.hpp" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="Headers">
@@ -116,6 +117,9 @@
     </Filter>
     <Filter Include="Demo">
       <UniqueIdentifier>{5c49f2bb-0305-48aa-835d-80d097a7e389}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Demo\External">
+      <UniqueIdentifier>{2eb46089-c48d-45b8-9304-9e75d01e9092}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
 </Project>

@@ -29,8 +29,8 @@
 
 #include "DemoConsts.hpp"
 
-constexpr auto WIDTH = 800;
-constexpr auto HEIGHT = 600;
+constexpr auto WIDTH = 1080;
+constexpr auto HEIGHT = 720;
 
 std::shared_ptr<VulkanRenderer> renderer;
 
@@ -245,7 +245,7 @@ void UpdateUniformBuffer(uint32_t currentImage) {
 
     for (int i = 0; i < chunks.size(); i++)
     {
-        if (chunks[i]->FinishedGenerating())
+        if (chunks[i]->FinishedGenerating() && chunks[i]->IndiciesSize() > 0)
         {
             glm::mat4 chunkModelMatrix = glm::translate(modelMatrix, chunks[i]->Location());
             //modelMatrices[i] = glm::mat4(1.0f);
@@ -290,7 +290,7 @@ void CleanUpBuffers()
 int main() {
     srand(time(NULL));
 
-    PopulateChunks(10, 10, 10);
+    PopulateChunks(20, 2, 20);
 
     renderer = std::make_shared<VulkanRenderer>();
 
@@ -341,8 +341,12 @@ int main() {
     modelMatrix = glm::mat4(1.0f);
     modelMatrix = glm::scale(modelMatrix, glm::vec3(0.5f, 0.5f, 0.5f));
     modelMatrix = glm::rotate(modelMatrix, (float)glm::radians(90.0f), glm::vec3(0.0f, 1.0f, 0.0f));
-    modelMatrix = glm::translate(modelMatrix, glm::vec3(-5.0f, -6 * CHUNK_VOXEL_COUNT, -5));
+    modelMatrix = glm::translate(modelMatrix, glm::vec3(-5*CHUNK_VOXEL_COUNT, -2 * CHUNK_VOXEL_COUNT, -5 * CHUNK_VOXEL_COUNT));
 
+    glfwSetCursorPosCallback(renderer->mWindow, [](GLFWwindow* window, double x, double y) {
+        camera.mouse_callback(window, x, y);
+        });
+    glfwSetInputMode(renderer->mWindow, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
     // Keep track of the last loop time.
     auto lastLoopTime = std::chrono::duration_cast<std::chrono::nanoseconds> (std::chrono::system_clock::now().time_since_epoch()).count() / 1000000000.0;
     // Event loop.
@@ -361,22 +365,22 @@ int main() {
         int leftKeyState = glfwGetKey(renderer->mWindow, GLFW_KEY_LEFT);
         if (leftKeyState == GLFW_PRESS) {
             //modelMatrix = glm::rotate(modelMatrix, deltaTime * glm::radians(90.0f), glm::vec3(0.0f, -1.0f, 0.0f));
-            camera.MoveLeft(2.5 * deltaTime);
+            camera.MoveLeft(5 * deltaTime);
         }
 
         // If the right key is pressed, rotate the object right.
         int rightKeyState = glfwGetKey(renderer->mWindow, GLFW_KEY_RIGHT);
         if (rightKeyState == GLFW_PRESS) {
            //modelMatrix = glm::rotate(modelMatrix, deltaTime * glm::radians(90.0f), glm::vec3(0.0f, 1.0f, 0.0f));
-            camera.MoveRight(2.5 * deltaTime);
+            camera.MoveRight(5 * deltaTime);
         }
 
         if (glfwGetKey(renderer->mWindow, GLFW_KEY_UP) == GLFW_PRESS) {
-            camera.MoveForward(2.5 * deltaTime);
+            camera.MoveForward(5 * deltaTime);
         }
 
         if (glfwGetKey(renderer->mWindow, GLFW_KEY_DOWN) == GLFW_PRESS) {
-            camera.MoveBackward(2.5 * deltaTime);
+            camera.MoveBackward(5 * deltaTime);
         }
 
         // If the right key is pressed, rotate the object right.
@@ -401,7 +405,7 @@ int main() {
 
         for (auto& chunk : chunks)
         {
-            if (chunk->FinishedGenerating())
+            if (chunk->FinishedGenerating() && chunk->IndiciesSize() > 0)
             {
                 frameCommandBuffer->BindVertexBuffer(chunk->VertexBuffer());
                 frameCommandBuffer->BindIndexBuffer(chunk->IndexBuffer());

@@ -31,6 +31,6 @@ vec3 colors[3] = vec3[](
 
 void main() {
     gl_Position = ubo.proj * ubo.view * modelMatrix * vec4(inPosition, 1.0);
-    fragColor = inColor - vec3(1.0, 0.3, 1.0);
+    fragColor = inColor;
 	fragTexCoord = inTexCoord;
 }
