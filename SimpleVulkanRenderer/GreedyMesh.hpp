@@ -431,5 +431,35 @@ bool checkBounds(glm::vec3 vec, int chunkSize) {
     return true;
 }
 
+AlgorithmOutput noGreedyMeshAlgorithm(int*** chunkArray, int chunkSize, int voxelCount) {
+    int totalIterations = 0;
+
+    AlgorithmOutput output;
+    if (voxelCount == 0) return output;
+    // Edge Case: If the entire chunk is full.
+        int i = 0;
+        for (int x = 0; x < chunkSize; x++) {
+            for (int y = 0; y < chunkSize; y++) {
+                for (int z = 0; z < chunkSize; z++) {
+                    if (chunkArray[x][y][z] == 0) continue;
+                    // O(1)
+                    getBack(glm::vec3(x, y, z), output, i);
+                    i += 4;
+                    getFront(glm::vec3(x, y, z), output, i);
+                    i += 4;
+                    getTop(glm::vec3(x, y, z), output, i);
+                    i += 4;
+                    getBottom(glm::vec3(x, y, z), output, i);
+                    i += 4;
+                    getLeft(glm::vec3(x, y, z), output, i);
+                    i += 4;
+                    getRight(glm::vec3(x, y, z), output, i);
+                    i += 4;
+                }
+            }
+        }
+        return output;
+}
+
 
 #endif

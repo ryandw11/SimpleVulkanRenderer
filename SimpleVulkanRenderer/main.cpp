@@ -32,6 +32,8 @@
 constexpr auto WIDTH = 1080;
 constexpr auto HEIGHT = 720;
 
+constexpr auto NUM_RESOURCE_THREADS = 1;
+
 std::shared_ptr<VulkanRenderer> renderer;
 
 /*
@@ -51,7 +53,7 @@ std::vector<uint32_t> indices;
 
 VulkanMappedBuffer modelMatrixBuffer;
 
-VulkanQueue resourceLoadingQueue;
+std::vector<VulkanQueue> resourceLoadingQueues;
 
 // The struct for uniforms.
 struct UniformBufferObject {
@@ -129,7 +131,7 @@ constexpr auto NUMBER_OF_CHUNKS = 2;
 
 std::atomic_bool finishedLoadingChunk = false;
 std::atomic_bool finishedLoadingChunk2 = false;
-std::thread chunkLoadingThread;
+std::vector<std::thread> chunkLoadingThreads;
 
 // Load the model.
 /*void loadModel() {
@@ -185,18 +187,23 @@ void PopulateChunks(int sx, int sy, int sz)
     }
 }
 
-void LoadChunks()
+void LoadChunks(int id)
 {
-    auto pool = renderer->CreateCommandPool("ResourceLoader", resourceLoadingQueue);
+    auto pool = renderer->CreateCommandPool(("ResourceLoader" + id), resourceLoadingQueues[id]);
 
-    for (auto& chunk : chunks)
+    int startingLocation = std::floor(chunks.size() / NUM_RESOURCE_THREADS) * id;
+    int endingLocation = (std::floor(chunks.size() / NUM_RESOURCE_THREADS) * (id + 1));
+
+    for (int i = startingLocation; i < endingLocation; i++)
     {
-        chunk->GenerateChunk(renderer->mBufferUtilities, pool, resourceLoadingQueue);
+        chunks[i]->GenerateChunk(renderer->mBufferUtilities, pool, resourceLoadingQueues[id]);
     }
 }
 
 void StartLoading() {
-    chunkLoadingThread = std::thread(LoadChunks);
+    for (int i = 0; i < NUM_RESOURCE_THREADS; i++) {
+        chunkLoadingThreads.push_back(std::thread(LoadChunks, i));
+    }
 }
 
 // ========================= [ Multi Threading] ==================
@@ -302,11 +309,14 @@ int main() {
     autoInitSettings.WindowWidth = WIDTH;
     autoInitSettings.WindowName = "Test Renderer Application";
     
-    VulkanQueueDescriptor queueDescriptor;
-    queueDescriptor.Type = COMPUTE_QUEUE;
-    queueDescriptor.Priority = 0.7f;
-    queueDescriptor.Name = "ResourceLoadingQueue";
-    autoInitSettings.CustomQueues.push_back(queueDescriptor);
+    for (int i = 0; i < NUM_RESOURCE_THREADS; i++)
+    {
+        VulkanQueueDescriptor queueDescriptor;
+        queueDescriptor.Type = COMPUTE_QUEUE;
+        queueDescriptor.Priority = 0.7f;
+        queueDescriptor.Name = "ResourceLoadingQueue" + i;
+        autoInitSettings.CustomQueues.push_back(queueDescriptor);
+    }
 
     renderer->AutoInitialize(
         autoInitSettings,
@@ -325,7 +335,9 @@ int main() {
             //loadModel();
             SetupBuffers();
 
-            resourceLoadingQueue = renderer->GetNamedVulkanQueue("ResourceLoadingQueue");
+            for (int i = 0; i < NUM_RESOURCE_THREADS; i++) {
+                resourceLoadingQueues.push_back(renderer->GetNamedVulkanQueue("ResourceLoadingQueue" + i));
+            }
 
             // Start the Threading
             StartLoading();
@@ -336,6 +348,9 @@ int main() {
             setBuilder->DescribeImageSample(1, 0, texture.ImageView(), texture.Sampler());
         }
     );
+
+    bool finished = false;
+    auto startTime = std::chrono::high_resolution_clock::now();
 
     // Main Loop::
     modelMatrix = glm::mat4(1.0f);
@@ -412,7 +427,10 @@ int main() {
                 frameCommandBuffer->BindVertexBuffer(chunk->ModelBuffer(), 0, 1); // Bind matrix buffer.
                 frameCommandBuffer->BindDescriptorSet(renderer->PrimaryGraphicsPipeline()->PipelineLayout(), renderer->DescriptorHandler()->DescriptorSetBuilder()->GetBuiltDescriptorSets()[currentImage]);
                 frameCommandBuffer->DrawIndexed(chunk->IndiciesSize());
-                
+            }
+
+            if (chunk->FinishedGenerating())
+            {
                 finishedCount++;
             }
         }
@@ -424,9 +442,20 @@ int main() {
         renderer->EndFrameDrawing(currentImage);
 
         
-        if (finishedCount >= chunks.size() && chunkLoadingThread.joinable())
+        for (int i = 0; i < NUM_RESOURCE_THREADS; i++)
         {
-            chunkLoadingThread.join();
+            if (finishedCount >= chunks.size() - 1 && chunkLoadingThreads[i].joinable())
+            {
+                chunkLoadingThreads[i].join();
+            }
+        }
+
+        if (!finished && finishedCount >= chunks.size() - 1)
+        {
+            auto stopTime = std::chrono::high_resolution_clock::now();
+            auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(stopTime - startTime);
+            std::cout << "Finished Loading Chunks In Time: " << duration.count() << " ms" << std::endl;
+            finished = true;
         }
     }
 
