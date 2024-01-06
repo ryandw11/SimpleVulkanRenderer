@@ -407,7 +407,7 @@ AlgorithmOutput greedyMeshAlgorithm(int*** chunkArray, int chunkSize, int voxelC
 
         }
     }
-    std::cout << "Voxel Greedy Mesh Algorithm completed in: " << totalIterations << " iterations." << std::endl;
+    //std::cout << "Voxel Greedy Mesh Algorithm completed in: " << totalIterations << " iterations." << std::endl;
     return output;
 }
 

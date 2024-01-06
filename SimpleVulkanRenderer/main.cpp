@@ -32,7 +32,7 @@
 constexpr auto WIDTH = 1080;
 constexpr auto HEIGHT = 720;
 
-constexpr auto NUM_RESOURCE_THREADS = 1;
+constexpr auto NUM_RESOURCE_THREADS = 15;
 
 std::shared_ptr<VulkanRenderer> renderer;
 
@@ -270,7 +270,7 @@ void UpdateUniformBuffer(uint32_t currentImage) {
     //ubo.view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
     ubo.view = camera.GetViewMatrix();
     // 45 degree field of view for the projective.
-    ubo.proj = glm::perspective(glm::radians(45.0f), renderer->mSwapChain->Extent().width / (float)renderer->mSwapChain->Extent().height, 0.1f, 100.0f);
+    ubo.proj = glm::perspective(glm::radians(45.0f), renderer->mSwapChain->Extent().width / (float)renderer->mSwapChain->Extent().height, 0.1f, 1000.0f);
 
     // Since GLM was desinged for OpenGL (which has its Y coordinate inverted) we need to flip the Y value in the project matrix.
     ubo.proj[1][1] *= -1;
@@ -348,6 +348,7 @@ int main() {
             setBuilder->DescribeImageSample(1, 0, texture.ImageView(), texture.Sampler());
         }
     );
+
 
     bool finished = false;
     auto startTime = std::chrono::high_resolution_clock::now();
@@ -450,7 +451,7 @@ int main() {
             }
         }
 
-        if (!finished && finishedCount >= chunks.size() - 1)
+        if (!finished && finishedCount >= chunks.size() - 8)
         {
             auto stopTime = std::chrono::high_resolution_clock::now();
             auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(stopTime - startTime);
