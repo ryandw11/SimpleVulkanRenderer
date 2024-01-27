@@ -32,7 +32,7 @@
 constexpr auto WIDTH = 1080;
 constexpr auto HEIGHT = 720;
 
-constexpr auto NUM_RESOURCE_THREADS = 1;
+constexpr auto NUM_RESOURCE_THREADS = 2;
 
 std::shared_ptr<VulkanRenderer> renderer;
 
@@ -66,64 +66,6 @@ struct UniformBufferObject {
 VulkanFrameObject<VulkanMappedBuffer> mappedUniformBuffers;
 glm::mat4 modelMatrix;
 
-std::vector<Vertex> cubeVertices =
-{
-            {{-0.5f, 0.5f, 0.5f}, {0.0f, 0.0f, 0.0f}, {0.0f, 0.0f}},
-            {{-0.5f, -0.5f, 0.5f}, {0.0f, 0.0f, 0.0f}, {0.0f, 1.0f}},
-            {{0.5f, -0.5f, 0.5f}, {0.0f, 0.0f, 0.0f}, {1.0f, 1.0f}},
-            {{0.5f, 0.5f, 0.5f}, {0.0f, 0.0f, 0.0f}, {1.0f, 0.0f}},
-            //back
-            {{-0.5f, 0.5f, -0.5f}, {0.0f, 0.0f, 0.0f}, {0.0f, 0.0f}},
-            {{-0.5f, -0.5f, -0.5f}, {0.0f, 0.0f, 0.0f}, {0.0f, 1.0f}},
-            {{0.5f, -0.5f, -0.5f}, {0.0f, 0.0f, 0.0f}, {1.0f, 1.0f}},
-            {{0.5f, 0.5f, -0.5f}, {0.0f, 0.0f, 0.0f}, {1.0f, 0.0f}},
-            //top
-            {{-0.5f, 0.5f, -0.5f}, {0.0f, 0.0f, 0.0f}, {0.0f, 0.0f}},
-            {{-0.5f, 0.5f, 0.5f}, {0.0f, 0.0f, 0.0f}, {0.0f, 1.0f}},
-            {{0.5f, 0.5f, 0.5f}, {0.0f, 0.0f, 0.0f}, {1.0f, 1.0f}},
-            {{0.5f, 0.5f, -0.5f}, {0.0f, 0.0f, 0.0f}, {1.0f, 0.0f}},
-            //bottom
-            {{-0.5f, -0.5f, -0.5f}, {0.0f, 0.0f, 0.0f}, {0.0f, 0.0f}},
-            {{-0.5f, -0.5f, 0.5f}, {0.0f, 0.0f, 0.0f}, {0.0f, 1.0f}},
-            {{0.5f, -0.5f, 0.5f}, {0.0f, 0.0f, 0.0f}, {1.0f, 1.0f}},
-            {{0.5f, -0.5f, -0.5f}, {0.0f, 0.0f, 0.0f}, {1.0f, 0.0f}},
-            //right
-            {{0.5f, 0.5f, 0.5f}, {0.0f, 0.0f, 0.0f}, {0.0f, 0.0f}},
-            {{0.5f, -0.5f, 0.5f}, {0.0f, 0.0f, 0.0f}, {0.0f, 1.0f}},
-            {{0.5f, -0.5f, -0.5f}, {0.0f, 0.0f, 0.0f}, {1.0f, 1.0f}},
-            {{0.5f, 0.5f, -0.5f}, {0.0f, 0.0f, 0.0f}, {1.0f, 0.0f}},
-            // left
-            {{-0.5f, 0.5f, -0.5f}, {0.0f, 0.0f, 0.0f}, {0.0f, 0.0f}},
-            {{-0.5f, -0.5f, -0.5f}, {0.0f, 0.0f, 0.0f}, {0.0f, 1.0f}},
-            {{-0.5f, -0.5f, 0.5f}, {0.0f, 0.0f, 0.0f}, {1.0f, 1.0f}},
-            {{-0.5f, 0.5f, 0.5f}, {0.0f, 0.0f, 0.0f}, {1.0f, 0.0f}}
-    };
-
-const std::vector<Vertex> vers = {
-    {{-0.5f, -0.5f, 0.0f}, {1.0f, 0.0f, 0.0f}, {1.0f, 0.0f}},
-    {{0.5f, -0.5f, 0.0f}, {0.0f, 1.0f, 0.0f}, {0.0f, 0.0f}},
-    {{0.5f, 0.5f, 0.0f}, {0.0f, 0.0f, 1.0f}, {0.0f, 1.0f}},
-    {{-0.5f, 0.5f, 0.0f}, {1.0f, 1.0f, 1.0f}, {1.0f, 1.0f}}
-};
-
-const std::vector<uint32_t> ind = {
-    0, 1, 2, 2, 3, 0
-};
-
-std::vector<uint32_t> cubeIndices = {
-            0, 1, 2, 2, 3, 0,
-            // back
-            4, 7, 6, 6, 5, 4,
-            // top
-            8, 9, 10, 10, 11, 8,
-            // bottom
-            12, 15, 14, 14, 13, 12,
-            // right
-            16, 17, 18, 18, 19, 16,
-            // left
-            20, 21, 22, 22, 23, 20
-};
-
 // ========================= [ Chunk Demo Settings ] ==================
 constexpr auto NUMBER_OF_CHUNKS = 2;
 
@@ -132,46 +74,6 @@ constexpr auto NUMBER_OF_CHUNKS = 2;
 std::atomic_bool finishedLoadingChunk = false;
 std::atomic_bool finishedLoadingChunk2 = false;
 std::vector<std::thread> chunkLoadingThreads;
-
-// Load the model.
-/*void loadModel() {
-    std::this_thread::sleep_for(std::chrono::seconds(1));
-    std::cout << "Started load thread" << std::endl;
-    std::this_thread::sleep_for (std::chrono::seconds(1));
-    srand(time(NULL));
-    int*** chunkArray = new int** [8];
-    for (int x = 0; x < 8; x++) {
-        chunkArray[x] = new int* [8];
-        for (int y = 0; y < 8; y++) {
-            chunkArray[x][y] = new int[8];
-            for (int z = 0; z < 8; z++) {
-                chunkArray[x][y][z] = rand() % 2;
-            }
-        }
-    }
-
-    auto startTime = std::chrono::high_resolution_clock::now();
-    AlgorithmOutput output = greedyMeshAlgorithm(chunkArray, 8, -1);
-    auto stopTime = std::chrono::high_resolution_clock::now();
-    auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(stopTime - startTime);
-    std::cout << "Execution Time: " << duration.count() << " ms";
-    vertices.reserve(vertices.size() + output.verticies.size());
-    vertices.insert(vertices.end(), output.verticies.begin(), output.verticies.end());
-
-    indices.reserve(indices.size() + output.indicies.size());
-    indices.insert(indices.end(), output.indicies.begin(), output.indicies.end());
-
-    auto pool = renderer->CreateCommandPool("ResourceLoader", resourceLoadingQueue);
-
-    // Vertex Buffer
-    vertexBuffer = renderer->mBufferUtilities->CreateVertexBuffer(vertices, pool->CommandPool(), resourceLoadingQueue.queue);
-
-    // Index Buffer
-    renderer->mBufferUtilities->CreateIndexBuffer(indices, indexBuffer, indexBufferMemory, pool->CommandPool(), resourceLoadingQueue.queue);
-
-    finishedLoadingChunk = true;
-    std::cout << "Finished load thread" << std::endl;
-}*/
 
 void PopulateChunks(int sx, int sy, int sz)
 {
@@ -332,7 +234,6 @@ int main() {
             return pipeline;
         },
         []() { /* General Loading Stage */
-            //loadModel();
             SetupBuffers();
 
             for (int i = 0; i < NUM_RESOURCE_THREADS; i++) {
