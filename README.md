@@ -201,17 +201,17 @@ the number of compute queues that your GPU has available.
 The size of a voxel chunk (by default 16 x 16 x 16) can be changed in the `DemoConsts.hpp` header file with the constant `CHUNK_VOXEL_COUNT`.
 
 ### Resource Loading System
-The diagram below shows the flow of how resources are loaded onto the GPU concurrently.
-![Flow diagram showing the resource loading](https://img.ryandw11.com/raw/rvshpr4a6.png)
-The demo uses a simplified version of what is shown above.
+The diagram below shows the flow of how resources are loaded onto the GPU concurrently.  
+![Flow diagram showing the resource loading](https://img.ryandw11.com/raw/rvshpr4a6.png)  
+The demo uses a simplified version of what is shown above.  
 
 ### Images
-![](https://img.ryandw11.com/raw/rvqte5d1a.png)
-![](https://img.ryandw11.com/raw/rvqtk1i1m.png)
+![](https://img.ryandw11.com/raw/rvqte5d1a.png)  
+![](https://img.ryandw11.com/raw/rvqtk1i1m.png)  
 
 ### Greedy Mesh Algorithm
 
-To test resource loading, a primitive version of the Greedy Mesh Algorithm is used to optimize the mesh of each voxel chunk:
+To test resource loading, a primitive version of the Greedy Mesh Algorithm is used to optimize the mesh of each voxel chunk:  
 ![](https://img.ryandw11.com/raw/rvqt19lfv.png)
 
 ## Used Resources
